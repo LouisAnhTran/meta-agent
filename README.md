@@ -8,6 +8,7 @@
   <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white" />
   <img src="https://img.shields.io/badge/Anthropic-191919?style=for-the-badge&logo=anthropic&logoColor=white" />
   <img src="https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white" />
+  <img src="https://img.shields.io/badge/Google_Cloud-4285F4?style=for-the-badge&logo=google-cloud&logoColor=white" />
 </p>
 
 A customer service platform where managers create, configure, and manage AI-powered CS agents via a web UI. Each agent has a Zendesk knowledge base, configurable instructions, and bindable tools.
@@ -84,15 +85,23 @@ backend/
     ├── mistakes.py       # auto-fix + verification replay
     └── embeddings.py     # OpenAI embedding wrapper
 
-frontend/src/
-├── App.jsx
-├── api.js                # fetch wrappers
-└── components/
-    ├── AgentList.jsx
-    ├── AgentEditor.jsx
-    ├── ChatWindow.jsx
-    ├── MistakeReport.jsx
-    └── MistakeDashboard.jsx
+frontend/
+├── Dockerfile
+├── package.json
+├── vite.config.js
+├── tailwind.config.js
+├── index.html
+└── src/
+    ├── App.jsx
+    ├── main.jsx
+    ├── index.css
+    ├── api.js                # fetch wrappers for all API calls
+    └── components/
+        ├── AgentList.jsx     # sidebar: list agents + empty state + create button
+        ├── AgentEditor.jsx   # name, KB URL, instructions, tool binding, save buttons
+        ├── ChatWindow.jsx    # chat UI + references + related questions + article viewer
+        ├── MistakeReport.jsx # report mistake modal
+        └── MistakeDashboard.jsx  # feedback list + run fix + before/after display
 ```
 
 ## Local Setup
