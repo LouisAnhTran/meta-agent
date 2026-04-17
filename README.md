@@ -110,6 +110,8 @@ frontend/
 ### Prerequisites
 
 - Docker + Docker Compose
+- Python 3.11+ and `uv`
+- Node.js 20+
 - API keys: Anthropic and OpenAI
 
 ### 1. Clone and configure
@@ -128,20 +130,57 @@ ANTHROPIC_API_KEY=sk-ant-...
 OPENAI_API_KEY=sk-...
 ```
 
-### 2. Start
+---
+
+### Option A — Full Docker (recommended for production/demo)
 
 ```bash
 docker compose up --build
 ```
 
-### 3. Verify
+- UI: `http://localhost`
+- API docs: `http://localhost:8000/docs`
+- pgAdmin: `http://localhost:5050`
+
+---
+
+### Option B — Local dev (faster iteration)
+
+Run only the database in Docker, backend and frontend locally.
+
+**Step 1 — Start db + pgAdmin:**
+```bash
+docker compose up db pgadmin
+```
+
+**Step 2 — Run backend:**
+```bash
+cd backend
+cp ../.env .env        # copy env vars into backend/
+uv sync                # install dependencies
+source .venv/bin/activate
+uvicorn main:app --reload --port 8000
+```
+
+**Step 3 — Run frontend:**
+```bash
+cd frontend
+npm install
+npm run dev            # runs on http://localhost:5173
+```
+
+Vite proxies `/api` to `localhost:8000` automatically — no Caddy needed.
+
+---
+
+### Verify
 
 ```bash
-curl localhost/api/health
+curl localhost:8000/api/health
 # {"status":"ok","db":true,"anthropic":true,"openai":true}
 ```
 
-Open `http://localhost` in your browser.
+Open `http://localhost:5173` in your browser.
 
 ### 4. Create the Atome agent
 

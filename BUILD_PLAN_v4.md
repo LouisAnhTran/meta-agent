@@ -1748,6 +1748,30 @@ docker compose logs -f api     # tail backend logs
 docker compose ps              # show running containers
 ```
 
+### Local Dev Mode (faster iteration — no full Docker rebuild)
+
+Run only db + pgAdmin in Docker; backend and frontend run directly on the host.
+
+```bash
+# Terminal 1 — database only
+docker compose up db pgadmin
+
+# Terminal 2 — backend (hot reload)
+cd backend
+cp ../.env .env
+uv sync
+source .venv/bin/activate
+uvicorn main:app --reload --port 8000
+
+# Terminal 3 — frontend (hot reload)
+cd frontend
+npm install
+npm run dev     # http://localhost:5173
+```
+
+Vite proxies `/api/*` to `localhost:8000` — no Caddy needed locally.
+URLs: frontend → `http://localhost:5173`, API docs → `http://localhost:8000/docs`, pgAdmin → `http://localhost:5050`
+
 ### First-Time Setup (Manual, via UI)
 
 After deploying, visit the public URL and create the Atome agent through the "Create New Agent" UI:
