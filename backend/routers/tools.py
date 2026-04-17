@@ -1,5 +1,9 @@
 from fastapi import APIRouter
+from services.tools import TOOL_CATALOG
 
-router = APIRouter()
+router = APIRouter(tags=["tools"])
 
-# Implemented in Step 3
+
+@router.get("/api/tools")
+async def list_tools():
+    return list(TOOL_CATALOG.values())

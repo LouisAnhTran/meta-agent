@@ -16,11 +16,11 @@ def parse_zendesk_url(url: str) -> tuple[str, str, int]:
 
 
 async def fetch_sections(base: str, locale: str, category_id: int) -> dict[int, dict]:
-    url = f"{base}/api/v2/help_center/{locale}/categories/{category_id}/sections.json"
+    url = f"{base}/api/v2/help_center/{locale}/categories/{category_id}/sections.json?per_page=100"
     sections = {}
     async with httpx.AsyncClient(timeout=30) as client:
         while url:
-            r = await client.get(url, params={"per_page": 100})
+            r = await client.get(url)
             r.raise_for_status()
             data = r.json()
             for s in data.get("sections", []):
@@ -30,11 +30,11 @@ async def fetch_sections(base: str, locale: str, category_id: int) -> dict[int, 
 
 
 async def fetch_articles(base: str, locale: str, category_id: int) -> list[dict]:
-    url = f"{base}/api/v2/help_center/{locale}/categories/{category_id}/articles.json"
+    url = f"{base}/api/v2/help_center/{locale}/categories/{category_id}/articles.json?per_page=100"
     articles = []
     async with httpx.AsyncClient(timeout=30) as client:
         while url:
-            r = await client.get(url, params={"per_page": 100})
+            r = await client.get(url)
             r.raise_for_status()
             data = r.json()
             articles.extend(data.get("articles", []))
