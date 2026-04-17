@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv sync *)",
+      "Bash(npm install *)",
+      "Bash(.venv/bin/python -c \"import main; print\\('imports OK'\\)\")",
+      "Bash(npm run *)",
+      "Bash(.venv/bin/python -c \"import main; print\\('OK'\\)\")"
+    ]
+  }
+}
