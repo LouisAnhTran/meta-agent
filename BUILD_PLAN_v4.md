@@ -79,6 +79,21 @@ The key insight: Part 1's Atome bot is just the first agent created through the 
 
 ---
 
+## Implementation Notes (deviations & fixes from original plan)
+
+| Area | Original Plan | Actual Implementation |
+|------|--------------|----------------------|
+| Backend Dockerfile | `uv sync --frozen` in Docker | Plain `pip install` — avoids `.venv` path issues inside container. `uv` still used locally. |
+| Docker Compose | No pgAdmin | Added `pgadmin` service on port 5050 for local DB inspection |
+| Docker Compose | No port on `api` | Exposed port `8000` for direct Swagger UI access at `localhost:8000/docs` |
+| `config.py` | No extra fields | Added `extra = "ignore"` — root `.env` has Docker-only vars (DOMAIN, POSTGRES_*) that pydantic-settings would reject |
+| `embeddings.py` | Module-level `AsyncOpenAI()` | Lazy-initialized — module-level init fails at import time without API key set |
+| `zendesk.py` | `params={"per_page": 100}` on each request | Embed `?per_page=100` in initial URL only — Zendesk `next_page` already includes all params, passing `params={}` again causes infinite loop |
+| `indexer.py` | `datetime.utcnow()` | Use `datetime.utcnow()` (naive) — asyncpg requires timezone-naive datetimes |
+| Logging | Not in plan | Added `logging.basicConfig` in `main.py` so background task progress is visible in terminal |
+
+---
+
 ## Step 1: Project Skeleton & Environment
 
 **Goal:** Runnable project with frontend and backend that communicate, deployable via Docker Compose.
@@ -238,18 +253,31 @@ volumes:
 ```dockerfile
 FROM python:3.11-slim
 
-RUN pip install --no-cache-dir uv
-
 WORKDIR /app
-COPY pyproject.toml uv.lock ./
-RUN uv sync --frozen --no-dev
+
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir \
+    "fastapi>=0.115" \
+    "uvicorn[standard]>=0.32" \
+    "pydantic>=2.9" \
+    "pydantic-settings>=2.6" \
+    "asyncpg>=0.30" \
+    "pgvector>=0.3" \
+    "httpx>=0.27" \
+    "python-dotenv>=1.0" \
+    "langchain-anthropic>=0.3" \
+    "langchain-openai>=0.2" \
+    "langgraph>=0.2" \
+    "openai>=1.50" \
+    "anthropic>=0.40"
 
 COPY . .
 
-ENV PATH="/app/.venv/bin:$PATH"
 EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
+
+> **Note:** `uv` is used locally for dependency management (`uv sync`). The Docker image uses plain `pip install` to avoid venv path issues inside the container.
 
 ### Frontend `Dockerfile`
 
@@ -647,11 +675,13 @@ def parse_zendesk_url(url: str) -> tuple[str, str, int]:
     return m.group(1), m.group(2), int(m.group(3))
 
 async def fetch_sections(base: str, locale: str, category_id: int) -> dict[int, dict]:
-    url = f"{base}/api/v2/help_center/{locale}/categories/{category_id}/sections.json"
+    # NOTE: embed per_page in the URL directly — Zendesk's next_page already contains
+    # all query params, so passing params={} again would cause an infinite loop.
+    url = f"{base}/api/v2/help_center/{locale}/categories/{category_id}/sections.json?per_page=100"
     sections = {}
     async with httpx.AsyncClient(timeout=30) as client:
         while url:
-            r = await client.get(url, params={"per_page": 100})
+            r = await client.get(url)
             r.raise_for_status()
             data = r.json()
             for s in data.get("sections", []):
@@ -660,11 +690,11 @@ async def fetch_sections(base: str, locale: str, category_id: int) -> dict[int, 
     return sections
 
 async def fetch_articles(base: str, locale: str, category_id: int) -> list[dict]:
-    url = f"{base}/api/v2/help_center/{locale}/categories/{category_id}/articles.json"
+    url = f"{base}/api/v2/help_center/{locale}/categories/{category_id}/articles.json?per_page=100"
     articles = []
     async with httpx.AsyncClient(timeout=30) as client:
         while url:
-            r = await client.get(url, params={"per_page": 100})
+            r = await client.get(url)
             r.raise_for_status()
             data = r.json()
             articles.extend(data.get("articles", []))
