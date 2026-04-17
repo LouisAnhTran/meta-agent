@@ -182,6 +182,20 @@ curl localhost:8000/api/health
 
 Open `http://localhost:5173` in your browser.
 
+---
+
+## Zendesk API Reference
+
+Useful for inspecting the raw KB data before indexing:
+
+```bash
+# List all sections in a category
+curl "https://help.atome.ph/api/v2/help_center/en-gb/categories/4439682039065/sections.json?per_page=100" | python3 -m json.tool
+
+# List all articles in a category
+curl "https://help.atome.ph/api/v2/help_center/en-gb/categories/4439682039065/articles.json?per_page=100" | python3 -m json.tool
+```
+
 ### 4. Create the Atome agent
 
 Once the UI loads, create your first agent:
