@@ -1,4 +1,4 @@
-# CS Meta-Agent
+<h1 align="center">CS Meta-Agent</h1>
 
 <p align="right">
   <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" />
