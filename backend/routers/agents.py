@@ -1,5 +1,4 @@
 import asyncio
-import json
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
@@ -44,7 +43,7 @@ async def create_agent(body: CreateAgentRequest):
         VALUES ($1, $2, $3, 'indexing')
         RETURNING *
         """,
-        body.name, body.kb_url, json.dumps(instructions),
+        body.name, body.kb_url, instructions,
     )
 
     agent_id = str(row["id"])
@@ -86,7 +85,7 @@ async def update_agent(agent_id: str, body: UpdateAgentRequest):
             WHERE id = $4
             RETURNING *
             """,
-            body.name, body.kb_url, json.dumps(instructions), agent_id,
+            body.name, body.kb_url, instructions, agent_id,
         )
         asyncio.create_task(_run_indexing(agent_id))
     else:
@@ -97,7 +96,7 @@ async def update_agent(agent_id: str, body: UpdateAgentRequest):
             WHERE id = $4
             RETURNING *
             """,
-            body.name, body.kb_url, json.dumps(instructions), agent_id,
+            body.name, body.kb_url, instructions, agent_id,
         )
 
     return _serialize(updated)

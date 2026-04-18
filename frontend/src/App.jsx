@@ -101,10 +101,6 @@ export default function App() {
     setTimeout(() => setRunTour(true), 400)
   }
 
-  function handleSkipTour() {
-    setTourIntroOpen(false)
-  }
-
   useEffect(() => {
     const hasIndexing = agents.some(a => a.status === 'indexing')
     if (!hasIndexing) return
@@ -176,7 +172,7 @@ export default function App() {
               <X size={15} />
             </button>
           </div>
-          <div className="flex-1 overflow-y-auto min-h-0">
+          <div className="flex-1 min-h-0">
             <AgentEditor
               agent={selectedAgent}
               isCreatingNew={isCreatingNew}
@@ -203,20 +199,15 @@ export default function App() {
                 chat with it, and review feedback reports. Takes about a minute.
               </p>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={handleSkipTour}
-                className="flex-1 py-2 text-sm border border-dark-border rounded hover:bg-dark-bg text-dark-text transition-colors"
-              >
-                Skip
-              </button>
-              <button
-                onClick={handleStartTour}
-                className="flex-1 py-2 text-sm bg-dark-accent text-white rounded hover:opacity-90 transition-opacity"
-              >
-                Start Tour
-              </button>
-            </div>
+            <p className="text-xs text-dark-muted">
+              You can skip the tour anytime by clicking <span className="text-dark-text font-medium">Skip</span> on any step.
+            </p>
+            <button
+              onClick={handleStartTour}
+              className="py-2 text-sm bg-dark-accent text-white rounded hover:opacity-90 transition-opacity"
+            >
+              Start Tour
+            </button>
           </div>
         </div>
       )}

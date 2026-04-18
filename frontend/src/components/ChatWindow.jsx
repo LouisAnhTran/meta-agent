@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
+import { BeatLoader, PulseLoader } from 'react-spinners'
+import { AlertTriangle } from 'lucide-react'
 import { api } from '../api'
 import MistakeReport from './MistakeReport'
 
@@ -68,16 +70,26 @@ export default function ChatWindow({ agent, isCreatingNew, userName }) {
 
   if (agent.status === 'indexing') {
     return (
-      <div className="flex items-center justify-center h-full text-yellow-400 text-sm p-8 text-center">
-        ⏳ Agent is indexing. Please wait…
+      <div className="flex flex-col items-center justify-center h-full gap-4 p-8">
+        <PulseLoader color="#6366f1" size={14} speedMultiplier={0.9} />
+        <div className="text-center flex flex-col gap-1">
+          <p className="text-sm font-medium text-dark-text">Indexing knowledge base…</p>
+          <p className="text-xs text-dark-muted">This usually takes 30–60 seconds.</p>
+        </div>
       </div>
     )
   }
 
   if (agent.status === 'failed') {
     return (
-      <div className="flex items-center justify-center h-full text-red-400 text-sm p-8 text-center">
-        ✗ Indexing failed. Re-index the agent to chat.
+      <div className="flex flex-col items-center justify-center h-full gap-3 p-8">
+        <div className="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/30 flex items-center justify-center">
+          <AlertTriangle size={22} className="text-red-400" />
+        </div>
+        <div className="text-center flex flex-col gap-1">
+          <p className="text-sm font-medium text-dark-text">Indexing failed</p>
+          <p className="text-xs text-dark-muted">Open Agent Settings and click <span className="text-dark-text">Re-index</span> to try again.</p>
+        </div>
       </div>
     )
   }
@@ -112,8 +124,8 @@ export default function ChatWindow({ agent, isCreatingNew, userName }) {
             ))}
 
             {loading && (
-              <div className="flex gap-2">
-                <div className="text-sm text-dark-muted animate-pulse">Thinking…</div>
+              <div className="flex items-center gap-2 py-1">
+                <BeatLoader color="#6366f1" size={7} speedMultiplier={0.9} />
               </div>
             )}
             <div ref={bottomRef} />

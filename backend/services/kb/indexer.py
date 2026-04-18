@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 from datetime import datetime
@@ -35,6 +36,9 @@ def looks_like_question(title: str) -> bool:
 async def run_indexing_pipeline(agent_id: str):
     """Background task: fetch Zendesk articles, embed, upsert to pgvector."""
     try:
+        # TEMP: artificial delay for UI spinner testing — REMOVE BEFORE SHIPPING
+        await asyncio.sleep(60)
+
         agent = await db.fetchrow("SELECT * FROM agents WHERE id = $1", agent_id)
         if not agent:
             raise ValueError(f"Agent {agent_id} not found")

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Plus, Trash2, Wrench, FileText, Sliders, Link as LinkIcon, User, Pencil, Check } from 'lucide-react'
+import { Plus, Trash2, Wrench, FileText, Sliders, Link as LinkIcon, User, Pencil, Check, Loader2 } from 'lucide-react'
 import { api } from '../api'
 
 const EMPTY_INSTRUCTION = { instruction_text: '', tool_name: null }
@@ -36,6 +36,8 @@ export default function AgentEditor({ agent, isCreatingNew, tools, onSaved }) {
   const kbUrlChanged = !isCreatingNew && kbUrl.trim() !== savedKbUrl
   const mustReindex = isCreatingNew || kbUrlChanged
   const isFailed = !isCreatingNew && agent?.status === 'failed'
+  const isIndexing = !isCreatingNew && agent?.status === 'indexing'
+  const locked = isIndexing || saving
 
   function addInstruction() {
     setInstructions(prev => [...prev, { ...EMPTY_INSTRUCTION }])
@@ -78,14 +80,16 @@ export default function AgentEditor({ agent, isCreatingNew, tools, onSaved }) {
   }
 
   return (
-    <div className="p-5 flex flex-col gap-5">
+    <div className="flex flex-col h-full">
+      <div className="flex-1 overflow-y-auto p-5 flex flex-col gap-5 min-h-0">
       {/* Name */}
       <Section icon={<User size={13} />} label="Agent Name">
         <input
           value={name}
           onChange={e => setName(e.target.value)}
+          disabled={locked}
           placeholder="e.g. Acme Support Bot"
-          className="w-full bg-dark-bg border border-dark-border rounded-md px-3 py-2 text-sm text-dark-text focus:outline-none focus:border-dark-accent transition-colors"
+          className="w-full bg-dark-bg border border-dark-border rounded-md px-3 py-2 text-sm text-dark-text focus:outline-none focus:border-dark-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         />
       </Section>
 
@@ -94,8 +98,9 @@ export default function AgentEditor({ agent, isCreatingNew, tools, onSaved }) {
         <input
           value={kbUrl}
           onChange={e => setKbUrl(e.target.value)}
+          disabled={locked}
           placeholder="https://support.example.com/hc/en-us/categories/..."
-          className="kb-url-input w-full bg-dark-bg border border-dark-border rounded-md px-3 py-2 text-sm text-dark-text focus:outline-none focus:border-dark-accent transition-colors"
+          className="kb-url-input w-full bg-dark-bg border border-dark-border rounded-md px-3 py-2 text-sm text-dark-text focus:outline-none focus:border-dark-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         />
         {kbUrlChanged && (
           <p className="text-xs text-yellow-400 mt-2">⚠ URL changed — re-indexing is required to update the knowledge base.</p>
@@ -104,18 +109,9 @@ export default function AgentEditor({ agent, isCreatingNew, tools, onSaved }) {
 
       {/* Instructions */}
       <div className="instructions-section">
-        <div className="flex items-center justify-between mb-1">
-          <div className="flex items-center gap-1.5">
-            <Wrench size={13} className="text-dark-muted" />
-            <label className="text-xs text-dark-muted uppercase tracking-wide font-semibold">Instructions</label>
-          </div>
-          <button
-            onClick={addInstruction}
-            className="flex items-center gap-1 text-xs text-dark-accent hover:bg-dark-accent/10 rounded px-2 py-1 transition-colors"
-          >
-            <Plus size={12} />
-            Add
-          </button>
+        <div className="flex items-center gap-1.5 mb-1">
+          <Wrench size={13} className="text-dark-muted" />
+          <label className="text-xs text-dark-muted uppercase tracking-wide font-semibold">Instructions</label>
         </div>
         <p className="text-xs text-dark-muted mb-3">
           Each instruction binds the agent to one predefined tool. Select a tool, then edit its description to tell the agent when to use it.
@@ -130,16 +126,26 @@ export default function AgentEditor({ agent, isCreatingNew, tools, onSaved }) {
               selectableTools={selectableTools}
               toolByName={toolByName}
               usedTools={usedTools}
+              disabled={locked}
               onChange={(field, value) => updateInstruction(idx, field, value)}
               onRemove={() => removeInstruction(idx)}
             />
           ))}
           {instructions.length === 0 && (
             <div className="border border-dashed border-dark-border rounded-md p-4 text-center">
-              <p className="text-xs text-dark-muted italic">No instructions yet. Click <span className="text-dark-accent">+ Add</span> to bind a tool.</p>
+              <p className="text-xs text-dark-muted italic">No instructions yet. Click <span className="text-dark-accent">+ Add Instruction</span> below to bind a tool.</p>
             </div>
           )}
         </div>
+
+        <button
+          onClick={addInstruction}
+          disabled={locked}
+          className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-dark-accent border border-dashed border-dark-border hover:border-dark-accent hover:bg-dark-accent/10 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-dark-border disabled:hover:bg-transparent"
+        >
+          <Plus size={13} />
+          Add Instruction
+        </button>
       </div>
 
       {error && (
@@ -148,44 +154,52 @@ export default function AgentEditor({ agent, isCreatingNew, tools, onSaved }) {
         </div>
       )}
 
-      {/* Save buttons */}
-      <div className="flex gap-2 mt-8 sticky bottom-0 bg-dark-surface pt-4 -mx-5 px-5 pb-2 border-t border-dark-border/50">
-        {isFailed ? (
+      {agent?.status === 'failed' && agent?.error_message && (
+        <div className="bg-red-900/20 border border-red-700/40 rounded-md px-3 py-2">
+          <p className="text-red-400 text-xs">{agent.error_message}</p>
+        </div>
+      )}
+      </div>
+
+      {/* Save bar — pinned to the bottom of the sidebar */}
+      <div className="flex-shrink-0 px-5 py-4 border-t border-dark-border bg-dark-surface">
+        {isIndexing ? (
+          <div className="flex items-center justify-center gap-2.5 py-2 rounded-md bg-dark-accent/10 border border-dark-accent/30">
+            <Loader2 size={15} className="text-dark-accent animate-spin" />
+            <span className="text-sm text-dark-accent font-medium">Indexing knowledge base…</span>
+          </div>
+        ) : isFailed ? (
           <button
             onClick={() => handleSave(true)}
-            disabled={saving}
-            className="save-reindex-btn flex-1 py-2 text-sm font-medium bg-dark-accent text-white rounded-md hover:opacity-90 disabled:opacity-50 transition-opacity shadow-sm"
+            disabled={locked}
+            className="save-reindex-btn w-full flex items-center justify-center gap-2 py-2 text-sm font-medium bg-dark-accent text-white rounded-md hover:opacity-90 disabled:opacity-50 transition-opacity shadow-sm"
           >
+            {saving && <Loader2 size={14} className="animate-spin" />}
             {saving ? 'Re-indexing…' : 'Re-index'}
           </button>
         ) : (
-          <>
+          <div className="flex gap-2">
             {!mustReindex && (
               <button
                 onClick={() => handleSave(false)}
-                disabled={saving}
-                className="flex-1 py-2 text-sm border border-dark-border rounded-md hover:bg-dark-bg text-dark-text disabled:opacity-50 transition-colors"
+                disabled={locked}
+                className="flex-1 flex items-center justify-center gap-2 py-2 text-sm border border-dark-border rounded-md hover:bg-dark-bg text-dark-text disabled:opacity-50 transition-colors"
               >
+                {saving && <Loader2 size={14} className="animate-spin" />}
                 {saving ? 'Saving…' : 'Save'}
               </button>
             )}
             <button
               onClick={() => handleSave(true)}
-              disabled={saving}
-              className="save-reindex-btn flex-1 py-2 text-sm font-medium bg-dark-accent text-white rounded-md hover:opacity-90 disabled:opacity-50 transition-opacity shadow-sm"
+              disabled={locked}
+              className="save-reindex-btn flex-1 flex items-center justify-center gap-2 py-2 text-sm font-medium bg-dark-accent text-white rounded-md hover:opacity-90 disabled:opacity-50 transition-opacity shadow-sm"
             >
+              {saving && <Loader2 size={14} className="animate-spin" />}
               {saving ? 'Saving…' : 'Save & Re-index'}
             </button>
-          </>
+          </div>
         )}
       </div>
-
-      {agent?.status === 'indexing' && (
-        <p className="text-yellow-400 text-xs text-center">⏳ Indexing in progress…</p>
-      )}
-      {agent?.status === 'failed' && agent?.error_message && (
-        <p className="text-red-400 text-xs text-center">✗ {agent.error_message}</p>
-      )}
     </div>
   )
 }
@@ -203,7 +217,7 @@ function Section({ icon, label, hint, children }) {
   )
 }
 
-function InstructionRow({ index, instruction, selectableTools, toolByName, usedTools, onChange, onRemove }) {
+function InstructionRow({ index, instruction, selectableTools, toolByName, usedTools, disabled, onChange, onRemove }) {
   const currentToolName = instruction.tool_name
   const currentTool = currentToolName ? toolByName[currentToolName] : null
   const isDangling = currentToolName && !currentTool
@@ -226,20 +240,22 @@ function InstructionRow({ index, instruction, selectableTools, toolByName, usedT
   // Collapsed summary view
   if (!isEditing && currentTool) {
     return (
-      <div className="flex items-center gap-2 bg-dark-bg/40 border border-dark-border rounded-lg px-3 py-2 shadow-sm hover:border-dark-accent/40 transition-colors group">
+      <div className={`flex items-center gap-2 bg-dark-bg/40 border border-dark-border rounded-lg px-3 py-2 shadow-sm transition-colors group ${disabled ? 'opacity-60' : 'hover:border-dark-accent/40'}`}>
         <span className="text-[10px] text-dark-muted uppercase tracking-wider font-semibold flex-shrink-0">#{index}</span>
         <Wrench size={12} className="text-dark-accent flex-shrink-0" />
         <span className="text-sm text-dark-text font-mono flex-1 truncate">{currentTool.name}</span>
         <button
           onClick={() => setIsEditing(true)}
-          className="text-dark-muted hover:text-dark-accent p-1 rounded hover:bg-dark-accent/10 transition-colors"
+          disabled={disabled}
+          className="text-dark-muted hover:text-dark-accent p-1 rounded hover:bg-dark-accent/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-dark-muted"
           title="Edit"
         >
           <Pencil size={13} />
         </button>
         <button
           onClick={onRemove}
-          className="text-dark-muted hover:text-red-400 p-1 rounded hover:bg-red-500/10 transition-colors"
+          disabled={disabled}
+          className="text-dark-muted hover:text-red-400 p-1 rounded hover:bg-red-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-dark-muted"
           title="Remove"
         >
           <Trash2 size={13} />
@@ -255,7 +271,8 @@ function InstructionRow({ index, instruction, selectableTools, toolByName, usedT
         <span className="text-[10px] text-dark-muted uppercase tracking-wider font-semibold">Instruction #{index}</span>
         <button
           onClick={onRemove}
-          className="text-dark-muted hover:text-red-400 p-1 rounded hover:bg-red-500/10 transition-colors"
+          disabled={disabled}
+          className="text-dark-muted hover:text-red-400 p-1 rounded hover:bg-red-500/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-dark-muted"
           title="Remove instruction"
         >
           <Trash2 size={13} />
@@ -272,7 +289,8 @@ function InstructionRow({ index, instruction, selectableTools, toolByName, usedT
         <select
           value={currentToolName || ''}
           onChange={e => handleToolChange(e.target.value)}
-          className="tool-dropdown w-full bg-dark-bg border border-dark-border rounded-md px-2 py-1.5 text-xs text-dark-text focus:outline-none focus:border-dark-accent transition-colors"
+          disabled={disabled}
+          className="tool-dropdown w-full bg-dark-bg border border-dark-border rounded-md px-2 py-1.5 text-xs text-dark-text focus:outline-none focus:border-dark-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <option value="">— Select a tool —</option>
           {isDangling && (
@@ -297,9 +315,10 @@ function InstructionRow({ index, instruction, selectableTools, toolByName, usedT
           <textarea
             value={instruction.instruction_text}
             onChange={e => onChange('instruction_text', e.target.value)}
+            disabled={disabled}
             placeholder="Describe when and how the agent should use this tool…"
             rows={3}
-            className="w-full bg-dark-bg border border-dark-border rounded-md px-2 py-1.5 text-sm text-dark-text resize-none focus:outline-none focus:border-dark-accent transition-colors"
+            className="w-full bg-dark-bg border border-dark-border rounded-md px-2 py-1.5 text-sm text-dark-text resize-none focus:outline-none focus:border-dark-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           />
         </div>
       )}
@@ -334,7 +353,7 @@ function InstructionRow({ index, instruction, selectableTools, toolByName, usedT
       {/* Per-card done button — collapses the card */}
       <button
         onClick={() => setIsEditing(false)}
-        disabled={!currentTool}
+        disabled={!currentTool || disabled}
         className="flex items-center justify-center gap-1.5 mt-1 py-1.5 text-xs font-medium bg-dark-accent/15 text-dark-accent border border-dark-accent/30 rounded-md hover:bg-dark-accent/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
         <Check size={13} />

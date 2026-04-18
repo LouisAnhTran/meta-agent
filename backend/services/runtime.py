@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 def _get_llm():
     return ChatAnthropic(
-        model="claude-sonnet-4-5-20251001",
+        model="claude-opus-4-6",
         api_key=settings.anthropic_api_key,
         max_tokens=2048,
     )
