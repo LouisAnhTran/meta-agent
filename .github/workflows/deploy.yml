@@ -110,4 +110,10 @@ jobs:
             echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
+
+            # Caddyfile is bind-mounted; `up -d` won't restart caddy on its own.
+            # Reload config in-place for zero-downtime pickup of Caddyfile edits.
+            docker compose -f docker-compose.prod.yml exec -T caddy \
+              caddy reload --config /etc/caddy/Caddyfile
+
             docker image prune -f
