@@ -20,3 +20,6 @@ backend/uv.lock
 
 # OS
 .DS_Store
+
+# Local deploy notes (IPs, project IDs, etc.)
+*.local.md
