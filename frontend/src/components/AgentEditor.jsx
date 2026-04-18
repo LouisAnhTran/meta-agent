@@ -166,7 +166,7 @@ export default function AgentEditor({ agent, isCreatingNew, tools, onSaved }) {
           onClick={addInstruction}
           disabled={locked || anyEditing}
           title={anyEditing ? 'Click Done on the current instruction before adding another.' : undefined}
-          className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-dark-accent border border-dashed border-dark-border hover:border-dark-accent hover:bg-dark-accent/10 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-dark-border disabled:hover:bg-transparent"
+          className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-dark-accent border border-dashed border-dark-border hover:border-dark-accent hover:bg-dark-accent/10 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-dark-border disabled:hover:bg-transparent dark:bg-dark-accent dark:text-white dark:border-solid dark:border-dark-accent dark:hover:bg-dark-accent-hover dark:hover:border-dark-accent-hover dark:shadow-sm dark:shadow-dark-accent/30 dark:disabled:bg-dark-bg dark:disabled:border-dark-border dark:disabled:text-dark-muted dark:disabled:shadow-none"
         >
           <Plus size={13} />
           Add Instruction
@@ -381,7 +381,7 @@ function InstructionRow({ index, instruction, selectableTools, toolByName, usedT
       <button
         onClick={onFinishEdit}
         disabled={!currentTool || disabled}
-        className="flex items-center justify-center gap-1.5 mt-1 py-1.5 text-xs font-medium bg-dark-accent/15 text-dark-accent border border-dark-accent/30 rounded-md hover:bg-dark-accent/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        className="flex items-center justify-center gap-1.5 mt-1 py-1.5 text-xs font-medium bg-dark-accent/15 text-dark-accent border border-dark-accent/30 rounded-md hover:bg-dark-accent/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors dark:bg-dark-accent dark:text-white dark:border-dark-accent dark:hover:bg-dark-accent-hover dark:shadow-sm dark:shadow-dark-accent/30 dark:disabled:bg-dark-bg dark:disabled:text-dark-muted dark:disabled:border-dark-border dark:disabled:shadow-none"
       >
         <Check size={13} />
         Done

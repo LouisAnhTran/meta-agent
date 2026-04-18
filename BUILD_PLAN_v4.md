@@ -91,6 +91,18 @@ The key insight: Part 1's Atome bot is just the first agent created through the 
 | `zendesk.py` | `params={"per_page": 100}` on each request | Embed `?per_page=100` in initial URL only — Zendesk `next_page` already includes all params, passing `params={}` again causes infinite loop |
 | `indexer.py` | `datetime.utcnow()` | Use `datetime.utcnow()` (naive) — asyncpg requires timezone-naive datetimes |
 | Logging | Not in plan | Added `logging.basicConfig` in `main.py` so background task progress is visible in terminal |
+| Theme | Single (dark) palette | Light + dark themes via Tailwind `darkMode: 'class'` + CSS variable theming. Light mode uses slate-800 accent (not purple/blue) for a neutral aesthetic; dark mode keeps the purple/blue accent. Toggle persisted in `localStorage`. |
+| Composer | Single textarea + send button | Claude.ai-style two-row composer: textarea on top, action row below with `+` menu (file/screenshot/project/skills/connections — all dummy), Research/Web search pills, model dropdown grouped by provider (Anthropic/OpenAI/Google), reasoning toggle, send. All extras are visual-only. |
+| Sidebars | Fixed widths | Both agent-list (left) and agent-settings (middle) sidebars are drag-resizable with mousedown/move/up handlers. Widths persisted in `localStorage`. Agent list capped at 25vw; settings clamped to 360–min(560, 35vw). |
+| Status tooltips | Standard CSS tooltip | Tooltips for sidebar status icons + composer `+` button use `createPortal` to escape parent `overflow:hidden`. Position computed via `getBoundingClientRect()` at hover time. |
+| Toasts | Not in plan | Indexing transitions (`indexing → ready` / `indexing → failed`) trigger toast notifications rendered via fixed bottom-right toaster with `toast-in` Tailwind keyframe slide animation. Uses a `prevStatusesRef` to detect transitions across polling ticks. |
+| Instruction editing | Free-form add/edit | One-edit-at-a-time UX: editing state lifted from `InstructionRow` into `AgentEditor`. "+ Add Instruction" disabled while any row is being edited. New rows enter edit mode automatically; users must click "Done" to commit. |
+| Editor reload bug | Reload on `agent` prop change | Polling returned a new `agent` object every 3s, which clobbered in-progress instruction edits when *another* agent was indexing. Fixed by depending on `[agent?.id, isCreatingNew]` so reload only fires on actual identity change. |
+| Bot message actions | Hover-only action bar | Action bar (thumbs up/down + flag) stays visible after a vote (`hasVote ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'`). Voted icon fills via `fill={vote === 'up' ? 'currentColor' : 'none'}` and gets an active pill background. |
+| Sources / Related | Plain inline links | Rendered as colored pill chips: blue for "Sources", emerald for "Other related questions". Full title shown (no truncation, `items-start gap-1` + `break-words`). Clicking a related question populates the composer textarea and focuses it (via ref + focus tick) instead of auto-sending. |
+| Indexing delay | None | `services/kb/indexer.py` includes an artificial `asyncio.sleep(8)` so the "indexing" UI state is observable during demos (toast, spinner, disabled chat input). Remove for production. |
+| Spinner color | Hardcoded purple | `PulseLoader` uses `color="currentColor"` inside a wrapper with `text-dark-accent`, so the spinner inherits the theme's accent color in both light and dark modes. Indexing badge uses `text-amber-500 dark:text-yellow-400` so it remains visible against light backgrounds. |
+| Selected agent | Single hover/selected style | Light mode highlights selected agent with the slate-800 accent (`bg-dark-accent/10 border-dark-accent`); dark mode uses neutral `bg-white/5 dark:border-dark-accent` so the accent color is reserved for primary CTAs and doesn't compete on hover. |
 
 ---
 
@@ -1111,6 +1123,10 @@ The frontend sends the full conversation history on every turn (conversations ar
 - Clicking an agent → selects it (shows editor + chat panel)
 - First agent in the list is auto-selected on load when at least one exists
 - Sidebar polls `GET /api/agents` every 3s to refresh statuses (only while any agent is `indexing`)
+- **Resizable:** drag handle on the right edge resizes the sidebar (min 180px, max 25vw). Width persisted in `localStorage`.
+- **Status icon tooltips** use `createPortal` (fixed-positioned via `getBoundingClientRect()`) so they escape the sidebar's `overflow:hidden` and aren't clipped by the chat window.
+- **Selected agent styling:** light mode uses the slate-800 accent (`bg-dark-accent/10 border-l-2 border-dark-accent`); dark mode uses a neutral `bg-white/5 dark:border-dark-accent` so the brand accent stays reserved for CTAs.
+- **Indexing icon color:** `text-amber-500 dark:text-yellow-400` so the in-progress state stands out against light backgrounds.
 
 ### Agent Editor
 
@@ -1126,6 +1142,8 @@ The frontend sends the full conversation history on every turn (conversations ar
     - Read-only info panel (only shown when a tool is selected — see below)
     - Delete button
   - "+ Add Instruction" button at the bottom of the list
+  - **One-edit-at-a-time:** the editing index is lifted into `AgentEditor` state. While any instruction is being edited, "+ Add Instruction" is disabled with a hint ("Finish the current instruction first"). New rows enter edit mode immediately on add; the user must click "Done" to commit.
+  - **Polling-safe reload:** the editor reloads form state from props only when the agent identity changes (`useEffect` deps `[agent?.id, isCreatingNew]`), not on every poll-driven object reference change. This prevents the polling tick from clobbering in-progress edits when *another* agent is indexing.
 
 #### Tool-binding UX flow (per instruction card)
 
@@ -1206,6 +1224,8 @@ Two buttons:
 └──────────────────────────────┘
 ```
 
+**Settings sidebar resize:** the agent editor panel itself is also drag-resizable via a handle on its right edge, clamped to `[360px, min(560px, 35vw)]` (tighter range than the agent list). Width persisted in `localStorage`.
+
 **Frontend logic (simplified):**
 ```javascript
 const urlChanged = formData.kb_url !== originalAgent?.kb_url;
@@ -1276,8 +1296,16 @@ async function pollStatus(agentId) {
 
 - Three-column layout: agent list (left) | agent editor (middle, collapsible) | chat window (right)
 - User messages right-aligned, bot messages left-aligned
-- Input field at bottom with send button, Enter-to-send
-- Flag icon 🚩 on each bot message → "Report Mistake" modal
+- **Claude.ai-style Composer at bottom** (two-row layout):
+  - Row 1: textarea (Enter-to-send, Shift+Enter newline). Holds a `ref` so external code can populate text and focus it (used by related-question chips).
+  - Row 2 (action row): `+` plus-menu button (file/screenshot/project/skills/connections — all dummy), Research / Web search / Adaptive pills (dummy), model dropdown grouped by provider (Anthropic / OpenAI / Google), reasoning toggle, send button.
+  - Tooltip on the `+` button uses `createPortal` and an active accent style when the menu is open.
+- **User message bubble** uses theme-aware styling: `bg-slate-100 text-slate-900 dark:bg-dark-accent dark:text-white` (mirrors claude.ai's soft slate look in light mode).
+- **Bot message action bar** (below each bot reply): thumbs up, thumbs down, flag.
+  - Hidden by default, revealed on hover. Once a vote is cast, the bar stays visible (`hasVote ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'`).
+  - Voted icon fills via `fill={vote === 'up' ? 'currentColor' : 'none'}` and gets an active pill background to make the vote state obvious.
+  - Flag icon → "Report Mistake" modal.
+- **Indexing spinner** uses `PulseLoader` with `color="currentColor"` inside a `text-dark-accent` wrapper so it inherits the theme accent in both modes.
 
 ### Chat Disabled States
 
@@ -1334,9 +1362,9 @@ Each bot message that uses the knowledge base renders in three sections:
 
 **Section 1 — Answer:** The LLM's text response to the user's question.
 
-**Section 2 — References:** Clickable article titles the agent used to generate the answer. Each has a `[View]` button. Clicking `[View]` opens the **Article Viewer Panel** (see below) — does NOT navigate away from the chat.
+**Section 2 — Sources:** Pill-shaped chips (blue background, full title shown — no truncation, `items-start gap-1` + `break-words`) listing the articles the agent used. Clicking a chip's `[View]` opens the **Article Viewer Panel** (see below) — does NOT navigate away from the chat. Section heading is "Sources".
 
-**Section 3 — Related questions:** Clickable chips from the same KB section (filtered to question-like titles). Clicking a chip **auto-populates the chat input** with that question text. User can review it and press Enter to send — they don't have to type it.
+**Section 3 — Other related questions:** Pill-shaped chips (emerald background) from the same KB section (filtered to question-like titles). Clicking a chip **populates the composer textarea with that question text** and focuses the textarea (cursor placed at the end via `setSelectionRange(len, len)`) — implemented through a `focusInputTick` state passed into Composer. The user can edit the prefilled text and press Enter to send. The chips do NOT auto-send. Section heading is "Other related questions".
 
 ### Article Viewer Panel
 
@@ -1457,12 +1485,14 @@ Triggered by clicking the flag icon 🚩 on any bot message. Modal shows:
 - Chat input is **disabled** when agent status is `failed` — shows "Indexing failed" message with guidance to re-index
 - Chat input is **disabled** when no agent is selected — shows "Create an agent to start chatting"
 - When agent transitions from `indexing` → `ready`, chat input **automatically enables** (from status polling)
-- Bot responses show three clear sections: answer, references, related questions
-- Clicking `[View]` on a reference opens the Article Viewer Panel with the actual Zendesk page rendered via iframe proxy
+- Bot responses show three clear sections: answer, Sources (blue pills), Other related questions (emerald pills)
+- Source pills show the full article title (no truncation) and have a `[View]` action
+- Clicking `[View]` on a Source opens the Article Viewer Panel with the actual Zendesk page rendered via iframe proxy
 - Article Viewer looks the same as visiting the URL directly in a browser (same styling, images, layout)
 - Article Viewer has an "Open in new tab ↗" link to open the real URL in a new browser tab
 - Article Viewer can be closed, and clicking a different `[View]` replaces the content
-- Related questions auto-populate the chat input on click (user presses Enter to send)
+- Clicking an "Other related questions" chip populates the composer textarea with the question and focuses it (no auto-send)
+- Bot message action bar (thumbs up/down/flag) appears on hover, stays visible after a vote, and shows the active vote with a filled icon and pill background
 - `search_knowledge_base` results render as References, NOT as a raw tool call card
 - Other tool calls (get_transaction_status, etc.) render as collapsible tool call cards
 - Conversation resets on agent switch and page refresh
@@ -1636,11 +1666,16 @@ This directly addresses the brief's requirement: *"Your system can demonstrate i
 
 ### Polish Items
 
-- **Loading states:** status badges during indexing, typing indicator during chat
+- **Loading states:** status badges during indexing, typing indicator during chat. Spinner uses `currentColor` so it inherits the theme accent.
 - **Error handling:** toasts for API errors, display `error_message` on failed indexing
 - **Empty states:** "No agents yet" (agent list), "No mistakes reported" (feedback tab), "Create an agent to start chatting" (chat window)
 - **Chat UX:** auto-scroll to latest message, Enter-to-send, disable send while waiting
 - **Tool calls:** collapsible cards with args + result
+- **Theme system:** Tailwind `darkMode: 'class'` with CSS-variable theming. Light mode uses a neutral slate-800 accent (no purple/blue) for an aesthetic match across icons, selected agent, joyride primary color, etc. Dark mode keeps the brand purple/blue accent. Theme toggle persisted in `localStorage`.
+- **Dark vs light hover styling:** selected agent in dark mode uses neutral `bg-white/5` (accent reserved for primary CTAs). Light mode uses the slate accent directly because the palette is neutral enough not to feel branded.
+- **Toast system:** `App.jsx` watches the agents list with a `prevStatusesRef` and emits a toast on `indexing → ready` (success) or `indexing → failed` (error). Toaster is fixed bottom-right; entries animate in via the `toast-in` Tailwind keyframe (`opacity 0/translateY(8px) → 1/0`). Auto-dismiss + manual close.
+- **Resizable sidebars:** both the agent list (left) and the agent editor / settings panel (middle) have drag handles persisted via `localStorage`. Agent list capped at 25vw; settings panel clamped to `[360, min(560, 35vw)]`. The resize state is owned by `App.jsx` and `AgentList.jsx`.
+- **Composer affordances (visual-only):** model dropdown (Anthropic / OpenAI / Google), reasoning toggle, `+` plus-menu (file / screenshot / project / skills / connections), Research / Web search / Adaptive pills. None of these are wired to the backend — they communicate the product surface area without committing to building it.
 
 ### Guided Product Tour (React Joyride)
 
@@ -1729,7 +1764,7 @@ function App() {
         showSkipButton
         showProgress
         callback={handleTourCallback}
-        styles={{ options: { primaryColor: '#3b82f6' } }}
+        styles={{ options: { primaryColor: darkMode ? '#6366f1' : '#1e293b' } }}
       />
 
       <header>

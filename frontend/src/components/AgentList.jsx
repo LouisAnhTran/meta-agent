@@ -144,18 +144,18 @@ export default function Sidebar({
                 onClick={() => handleAgentClick(agent.id)}
                 className={`w-full flex items-center gap-2 px-2 py-2 text-left border-l-2 transition-colors ${
                   isSelected
-                    ? 'bg-dark-accent/10 border-dark-accent'
-                    : 'border-transparent hover:bg-dark-accent/5'
+                    ? 'bg-dark-accent/10 border-dark-accent dark:bg-white/5 dark:border-dark-accent'
+                    : 'border-transparent hover:bg-dark-accent/5 dark:hover:bg-white/5'
                 }`}
                 title={open ? undefined : agent.name}
               >
                 <StatusIcon status={agent.status} />
                 {open && (
                   <>
-                    <span className={`flex-1 text-sm truncate ${isSelected ? 'text-dark-accent font-medium' : 'text-dark-text'}`}>{agent.name}</span>
+                    <span className={`flex-1 text-sm truncate ${isSelected ? 'text-dark-accent font-medium dark:text-dark-text' : 'text-dark-text'}`}>{agent.name}</span>
                     <ChevronRight
                       size={12}
-                      className={`flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''} ${isSelected ? 'text-dark-accent' : 'text-dark-muted'}`}
+                      className={`flex-shrink-0 transition-transform ${isExpanded ? 'rotate-90' : ''} ${isSelected ? 'text-dark-accent dark:text-dark-muted' : 'text-dark-muted'}`}
                     />
                   </>
                 )}
