@@ -2,6 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  /* Light theme (default) — neutral slate accent */
+  --color-bg: 255 255 255;
+  --color-surface: 248 250 252;
+  --color-border: 226 232 240;
+  --color-text: 15 23 42;
+  --color-muted: 100 116 139;
+  --color-accent: 30 41 59;
+  --color-accent-hover: 15 23 42;
+
+  color-scheme: light;
+}
+
+html.dark {
+  --color-bg: 15 23 42;
+  --color-surface: 30 41 59;
+  --color-border: 51 65 85;
+  --color-text: 226 232 240;
+  --color-muted: 148 163 184;
+  --color-accent: 99 102 241;
+  --color-accent-hover: 79 70 229;
+
+  color-scheme: dark;
+}
+
 body {
   @apply bg-dark-bg text-dark-text;
 }

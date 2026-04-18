@@ -1,3 +1,4 @@
+import asyncio
 import json
 import logging
 
@@ -35,6 +36,10 @@ def _to_lc_messages(messages: list[dict]):
 
 
 async def run_chat(agent_id: str, messages: list[dict]) -> dict:
+    # Short pause so the frontend reasoning indicator is visibly shown
+    # before the response lands.
+    await asyncio.sleep(3)
+
     agent_row = await db.fetchrow("SELECT * FROM agents WHERE id = $1", agent_id)
     if not agent_row:
         raise ValueError(f"Agent {agent_id} not found")

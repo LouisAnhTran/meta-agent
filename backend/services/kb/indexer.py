@@ -36,8 +36,8 @@ def looks_like_question(title: str) -> bool:
 async def run_indexing_pipeline(agent_id: str):
     """Background task: fetch Zendesk articles, embed, upsert to pgvector."""
     try:
-        # TEMP: artificial delay for UI spinner testing — REMOVE BEFORE SHIPPING
-        await asyncio.sleep(60)
+        # Small artificial delay so the indexing spinner is visible to the user
+        await asyncio.sleep(8)
 
         agent = await db.fetchrow("SELECT * FROM agents WHERE id = $1", agent_id)
         if not agent:

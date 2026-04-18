@@ -1,23 +1,44 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api'
 
+const DUMMY_TOUR_MISTAKE = {
+  id: 'dummy-tour-mistake',
+  user_message: 'How do I change my billing address?',
+  bot_response: 'You can update your billing address in the account settings page.',
+  user_description: 'The bot gave a vague answer — it should have linked to the specific Zendesk article on updating billing info.',
+  status: 'pending',
+  fix_comment: null,
+  verified_response: null,
+  is_demo: true,
+}
+
 export default function MistakeDashboard({ agent }) {
   // feedback-panel class used as tour target
   const [mistakes, setMistakes] = useState([])
   const [loading, setLoading] = useState(false)
   const [fixing, setFixing] = useState(null)
-  const [expanded, setExpanded] = useState(null)
+  const [expanded, setExpanded] = useState(DUMMY_TOUR_MISTAKE.id)
 
   useEffect(() => {
-    if (!agent) return
+    if (!agent || agent.is_demo) {
+      setMistakes([])
+      return
+    }
     setLoading(true)
     api.getMistakes(agent.id)
       .then(setMistakes)
       .catch(console.error)
       .finally(() => setLoading(false))
-  }, [agent?.id])
+  }, [agent?.id, agent?.is_demo])
+
+  // Always prepend the demo feedback so the tour target + an example are visible.
+  const allMistakes = [DUMMY_TOUR_MISTAKE, ...mistakes]
 
   async function handleRunFix(mistake) {
+    if (mistake.is_demo) {
+      alert('This is a demo feedback report for the tour — create a real report to try Run Fix.')
+      return
+    }
     setFixing(mistake.id)
     try {
       const updated = await api.runFix(mistake.id)
@@ -29,25 +50,25 @@ export default function MistakeDashboard({ agent }) {
     }
   }
 
-  if (!agent) return null
-
   if (loading) {
     return <p className="feedback-panel text-dark-muted text-sm p-4 text-center">Loading…</p>
   }
 
-  if (mistakes.length === 0) {
-    return <p className="feedback-panel text-dark-muted text-sm p-4 text-center">No mistake reports yet.</p>
-  }
-
   return (
-    <div className="feedback-panel flex flex-col gap-2 p-3">
-      {mistakes.map(m => (
-        <div key={m.id} className="border border-dark-border rounded bg-dark-bg">
+    <div className="feedback-panel flex flex-col gap-2 p-4">
+      {allMistakes.map(m => (
+        <div
+          key={m.id}
+          className={`border rounded-md bg-dark-bg transition-colors hover:border-dark-accent/60 ${m.is_demo ? 'demo-feedback border-dark-accent/50' : 'border-dark-border'}`}
+        >
           <button
             onClick={() => setExpanded(expanded === m.id ? null : m.id)}
-            className="w-full text-left px-3 py-2 flex items-center justify-between gap-2"
+            className="w-full text-left px-4 py-3 flex items-center justify-between gap-3"
           >
             <span className="text-sm text-dark-text truncate flex-1">{m.user_message}</span>
+            {m.is_demo && (
+              <span className="text-[10px] px-1.5 py-0.5 rounded bg-dark-accent/20 text-dark-accent uppercase tracking-wide flex-shrink-0">Demo</span>
+            )}
             <StatusPill status={m.status} />
           </button>
 

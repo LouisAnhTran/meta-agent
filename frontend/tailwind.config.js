@@ -6,14 +6,28 @@ export default {
     extend: {
       colors: {
         dark: {
-          bg: '#0f172a',
-          surface: '#1e293b',
-          border: '#334155',
-          text: '#e2e8f0',
-          muted: '#94a3b8',
-          accent: '#6366f1',
-          'accent-hover': '#4f46e5',
+          bg: 'rgb(var(--color-bg) / <alpha-value>)',
+          surface: 'rgb(var(--color-surface) / <alpha-value>)',
+          border: 'rgb(var(--color-border) / <alpha-value>)',
+          text: 'rgb(var(--color-text) / <alpha-value>)',
+          muted: 'rgb(var(--color-muted) / <alpha-value>)',
+          accent: 'rgb(var(--color-accent) / <alpha-value>)',
+          'accent-hover': 'rgb(var(--color-accent-hover) / <alpha-value>)',
         },
+      },
+      keyframes: {
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+        'toast-in': {
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        shimmer: 'shimmer 2.5s linear infinite',
+        'toast-in': 'toast-in 200ms ease-out',
       },
     },
   },

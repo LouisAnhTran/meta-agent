@@ -26,7 +26,11 @@ export default function AgentEditor({ agent, isCreatingNew, tools, onSaved }) {
       setInstructions(Array.isArray(agent.instructions) ? agent.instructions : [])
       setError(null)
     }
-  }, [agent, isCreatingNew])
+    // Only reload from server when the *agent identity* changes.
+    // Polling (e.g. while another agent is indexing) replaces the `agent`
+    // object reference without changing id — ignoring it here prevents
+    // clobbering in-progress form edits (name/kb_url/instructions/editingIdx).
+  }, [agent?.id, isCreatingNew])
 
   // Tools available in dropdowns (never show always_enabled tools like search_knowledge_base)
   const selectableTools = tools.filter(t => !t.always_enabled)
@@ -39,12 +43,29 @@ export default function AgentEditor({ agent, isCreatingNew, tools, onSaved }) {
   const isIndexing = !isCreatingNew && agent?.status === 'indexing'
   const locked = isIndexing || saving
 
+  // Only one instruction can be edited at a time. Tracked by array index.
+  const [editingIdx, setEditingIdx] = useState(null)
+  const anyEditing = editingIdx !== null
+
+  // Reset editing state when switching agents
+  useEffect(() => { setEditingIdx(null) }, [agent?.id, isCreatingNew])
+
   function addInstruction() {
-    setInstructions(prev => [...prev, { ...EMPTY_INSTRUCTION }])
+    setInstructions(prev => {
+      const next = [...prev, { ...EMPTY_INSTRUCTION }]
+      setEditingIdx(next.length - 1)
+      return next
+    })
   }
 
   function removeInstruction(idx) {
     setInstructions(prev => prev.filter((_, i) => i !== idx))
+    setEditingIdx(current => {
+      if (current === null) return null
+      if (current === idx) return null
+      if (current > idx) return current - 1
+      return current
+    })
   }
 
   function updateInstruction(idx, field, value) {
@@ -127,6 +148,9 @@ export default function AgentEditor({ agent, isCreatingNew, tools, onSaved }) {
               toolByName={toolByName}
               usedTools={usedTools}
               disabled={locked}
+              isEditing={editingIdx === idx}
+              onStartEdit={() => setEditingIdx(idx)}
+              onFinishEdit={() => setEditingIdx(null)}
               onChange={(field, value) => updateInstruction(idx, field, value)}
               onRemove={() => removeInstruction(idx)}
             />
@@ -140,12 +164,18 @@ export default function AgentEditor({ agent, isCreatingNew, tools, onSaved }) {
 
         <button
           onClick={addInstruction}
-          disabled={locked}
+          disabled={locked || anyEditing}
+          title={anyEditing ? 'Click Done on the current instruction before adding another.' : undefined}
           className="mt-3 w-full flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-dark-accent border border-dashed border-dark-border hover:border-dark-accent hover:bg-dark-accent/10 rounded-md transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-dark-border disabled:hover:bg-transparent"
         >
           <Plus size={13} />
           Add Instruction
         </button>
+        {anyEditing && (
+          <p className="text-[11px] text-dark-muted mt-1.5 text-center">
+            Click <span className="text-dark-accent">Done</span> on the current instruction before adding another.
+          </p>
+        )}
       </div>
 
       {error && (
@@ -217,13 +247,10 @@ function Section({ icon, label, hint, children }) {
   )
 }
 
-function InstructionRow({ index, instruction, selectableTools, toolByName, usedTools, disabled, onChange, onRemove }) {
+function InstructionRow({ index, instruction, selectableTools, toolByName, usedTools, disabled, isEditing, onStartEdit, onFinishEdit, onChange, onRemove }) {
   const currentToolName = instruction.tool_name
   const currentTool = currentToolName ? toolByName[currentToolName] : null
   const isDangling = currentToolName && !currentTool
-
-  // New rows (no tool yet) start in editing mode; existing rows collapse by default.
-  const [isEditing, setIsEditing] = useState(!currentToolName)
 
   const availableTools = selectableTools.filter(
     t => !usedTools.has(t.name) || t.name === currentToolName
@@ -245,7 +272,7 @@ function InstructionRow({ index, instruction, selectableTools, toolByName, usedT
         <Wrench size={12} className="text-dark-accent flex-shrink-0" />
         <span className="text-sm text-dark-text font-mono flex-1 truncate">{currentTool.name}</span>
         <button
-          onClick={() => setIsEditing(true)}
+          onClick={onStartEdit}
           disabled={disabled}
           className="text-dark-muted hover:text-dark-accent p-1 rounded hover:bg-dark-accent/10 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-dark-muted"
           title="Edit"
@@ -352,7 +379,7 @@ function InstructionRow({ index, instruction, selectableTools, toolByName, usedT
 
       {/* Per-card done button — collapses the card */}
       <button
-        onClick={() => setIsEditing(false)}
+        onClick={onFinishEdit}
         disabled={!currentTool || disabled}
         className="flex items-center justify-center gap-1.5 mt-1 py-1.5 text-xs font-medium bg-dark-accent/15 text-dark-accent border border-dark-accent/30 rounded-md hover:bg-dark-accent/25 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
       >
