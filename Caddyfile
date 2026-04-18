@@ -1,4 +1,4 @@
-{$DOMAIN:localhost} {
+http://{$DOMAIN:localhost} {
     handle /api/* {
         reverse_proxy api:8000
     }
