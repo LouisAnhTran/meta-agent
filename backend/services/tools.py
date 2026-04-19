@@ -64,7 +64,10 @@ TOOL_CATALOG = {
     },
     "lookup_pricing": {
         "name": "lookup_pricing",
-        "description": "Look up pricing information for a product or service",
+        "description": (
+            "Look up pricing for a product. Valid products: 'Atome Card', "
+            "'Premium Plan', 'VIP Plan'."
+        ),
         "parameters": {
             "type": "object",
             "properties": {
@@ -178,7 +181,12 @@ def escalate_to_human(reason: str) -> dict:
 
 @tool
 def lookup_pricing(product_name: str) -> dict:
-    """Look up pricing information for a product or service."""
+    """Look up pricing information for a product or service.
+
+    Valid product_name values are: 'Atome Card', 'Premium Plan', 'VIP Plan'.
+    Do not call this tool for any other product — instead, tell the customer
+    we do not offer that product.
+    """
     return mock_lookup_pricing(product_name)
 
 
