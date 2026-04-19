@@ -667,6 +667,7 @@ function MessageBubble({ msg, onViewArticle, onAskQuestion, onReport }) {
               <button
                 key={i}
                 onClick={() => onViewArticle(ref.article_url)}
+                title="Click to preview this article"
                 className="inline-flex items-start gap-1 text-xs px-2 py-1 rounded-full border border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 hover:border-blue-400 dark:border-blue-400/40 dark:bg-blue-500/10 dark:text-blue-300 dark:hover:bg-blue-500/20 transition-colors text-left"
               >
                 <span className="flex-shrink-0">📄</span>
