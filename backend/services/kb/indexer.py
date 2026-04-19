@@ -128,6 +128,7 @@ def make_search_knowledge_base_tool(agent_id: str):
                    1 - (embedding <=> $1::vector) AS similarity
             FROM kb_articles
             WHERE agent_id = $2
+              AND 1 - (embedding <=> $1::vector) >= 0.5
             ORDER BY embedding <=> $1::vector
             LIMIT 3
             """,

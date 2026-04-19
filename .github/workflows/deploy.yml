@@ -111,9 +111,9 @@ jobs:
             docker compose -f docker-compose.prod.yml pull
             docker compose -f docker-compose.prod.yml up -d --remove-orphans
 
-            # Caddyfile is bind-mounted; `up -d` won't restart caddy on its own.
-            # Reload config in-place for zero-downtime pickup of Caddyfile edits.
-            docker compose -f docker-compose.prod.yml exec -T caddy \
-              caddy reload --config /etc/caddy/Caddyfile
+            # Caddyfile is bind-mounted; `up -d` won't restart caddy on its own,
+            # and `caddy reload` has been unreliable at picking up changes.
+            # Restart is ~1s of downtime and guarantees the new Caddyfile is loaded.
+            docker compose -f docker-compose.prod.yml restart caddy
 
             docker image prune -f

@@ -51,12 +51,10 @@ export default function ChatWindow({ agent, isCreatingNew, userName }) {
   const [articleWidth, setArticleWidth] = useState(420)
   const [resizing, setResizing] = useState(false)
   const [reportTarget, setReportTarget] = useState(null)
-  const [focusInputTick, setFocusInputTick] = useState(0)
   const bottomRef = useRef(null)
 
   function handleAskQuestion(question) {
-    setInput(question)
-    setFocusInputTick(t => t + 1)
+    handleSend(question)
   }
 
   function startArticleResize(e) {
@@ -93,10 +91,11 @@ export default function ChatWindow({ agent, isCreatingNew, userName }) {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
-  async function handleSend() {
-    const text = input.trim()
+  async function handleSend(textOverride) {
+    const override = typeof textOverride === 'string' ? textOverride.trim() : null
+    const text = override ?? input.trim()
     if (!text || loading || !agent) return
-    setInput('')
+    if (override === null) setInput('')
 
     const userMsg = { role: 'user', content: text, createdAt: Date.now() }
     setMessages(prev => [...prev, userMsg])
@@ -211,7 +210,6 @@ export default function ChatWindow({ agent, isCreatingNew, userName }) {
               onSend={handleSend}
               onKeyDown={handleKeyDown}
               loading={loading}
-              focusTick={focusInputTick}
             />
             <p className="text-xs text-dark-muted text-center mt-2">Press Enter to send, Shift+Enter for new line</p>
           </div>
@@ -282,7 +280,7 @@ const PLUS_MENU_ITEMS = [
   { icon: Link2, label: 'Connections' },
 ]
 
-function Composer({ agentName, input, setInput, onSend, onKeyDown, loading, focusTick }) {
+function Composer({ agentName, input, setInput, onSend, onKeyDown, loading }) {
   const [plusOpen, setPlusOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
   const [model, setModel] = useState('Claude Opus 4.7')
@@ -291,15 +289,6 @@ function Composer({ agentName, input, setInput, onSend, onKeyDown, loading, focu
   const [reasoning, setReasoning] = useState(true)
   const textareaRef = useRef(null)
   const canSend = !loading && input.trim().length > 0
-
-  useEffect(() => {
-    if (focusTick == null) return
-    const el = textareaRef.current
-    if (!el) return
-    el.focus()
-    const len = el.value.length
-    el.setSelectionRange(len, len)
-  }, [focusTick])
 
   return (
     <div className="relative flex flex-col bg-dark-surface border border-dark-border rounded-2xl shadow-lg focus-within:border-dark-accent transition-colors">
@@ -672,7 +661,7 @@ function MessageBubble({ msg, onViewArticle, onAskQuestion, onReport }) {
       {/* References */}
       {msg.references?.length > 0 && (
         <div className="max-w-[80%] flex flex-col gap-1.5 mt-1">
-          <p className="text-xs text-dark-muted uppercase tracking-wide">Sources</p>
+          <p className="text-xs text-dark-muted uppercase tracking-wide">Relevant sources</p>
           <div className="flex flex-wrap gap-1.5">
             {msg.references.map((ref, i) => (
               <button
