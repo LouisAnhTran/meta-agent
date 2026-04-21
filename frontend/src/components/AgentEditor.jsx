@@ -4,7 +4,7 @@ import { api } from '../api'
 
 const EMPTY_INSTRUCTION = { instruction_text: '', tool_name: null }
 
-export default function AgentEditor({ agent, isCreatingNew, tools, onSaved }) {
+export default function AgentEditor({ agent, isCreatingNew, tools, onSaved, refreshTick, onDirtyChange }) {
   const [name, setName] = useState('')
   const [kbUrl, setKbUrl] = useState('')
   const [instructions, setInstructions] = useState([])
@@ -26,11 +26,12 @@ export default function AgentEditor({ agent, isCreatingNew, tools, onSaved }) {
       setInstructions(Array.isArray(agent.instructions) ? agent.instructions : [])
       setError(null)
     }
-    // Only reload from server when the *agent identity* changes.
+    // Reload from server when the *agent identity* changes, or when the
+    // parent signals an explicit refresh (e.g. settings panel re-opened).
     // Polling (e.g. while another agent is indexing) replaces the `agent`
     // object reference without changing id — ignoring it here prevents
     // clobbering in-progress form edits (name/kb_url/instructions/editingIdx).
-  }, [agent?.id, isCreatingNew])
+  }, [agent?.id, isCreatingNew, refreshTick])
 
   // Tools available in dropdowns (never show always_enabled tools like search_knowledge_base)
   const selectableTools = tools.filter(t => !t.always_enabled)
@@ -49,6 +50,28 @@ export default function AgentEditor({ agent, isCreatingNew, tools, onSaved }) {
 
   // Reset editing state when switching agents
   useEffect(() => { setEditingIdx(null) }, [agent?.id, isCreatingNew])
+
+  // Notify parent whenever the form diverges from the saved agent, so
+  // external UI (e.g. chat input) can block actions until the user saves.
+  useEffect(() => {
+    if (!onDirtyChange) return
+    if (isCreatingNew || !agent) {
+      onDirtyChange(false)
+      return
+    }
+    const savedInstructions = Array.isArray(agent.instructions) ? agent.instructions : []
+    const dirty =
+      name !== (agent.name ?? '') ||
+      kbUrl !== (agent.kb_url ?? '') ||
+      JSON.stringify(instructions) !== JSON.stringify(savedInstructions)
+    onDirtyChange(dirty)
+  }, [name, kbUrl, instructions, agent, isCreatingNew, onDirtyChange])
+
+  // When this editor unmounts, clear the dirty flag so the chat is not
+  // perma-blocked after the panel closes.
+  useEffect(() => {
+    return () => { onDirtyChange?.(false) }
+  }, [onDirtyChange])
 
   function addInstruction() {
     setInstructions(prev => {

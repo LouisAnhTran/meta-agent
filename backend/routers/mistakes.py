@@ -1,9 +1,13 @@
+import logging
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
 import db
 from models import CreateMistakeRequest
+from services.mistakes import apply_fix
 
+logger = logging.getLogger(__name__)
 router = APIRouter(tags=["mistakes"])
 
 
@@ -54,5 +58,11 @@ async def list_mistakes(agent_id: str):
 
 @router.put("/api/mistakes/{mistake_id}/fix")
 async def run_fix(mistake_id: str):
-    # Implemented in Step 8
-    raise HTTPException(501, detail="Not implemented yet")
+    try:
+        updated = await apply_fix(mistake_id)
+    except ValueError as e:
+        raise HTTPException(400, detail=str(e))
+    except Exception:
+        logger.exception("Fix failed for mistake %s", mistake_id)
+        raise HTTPException(500, detail="Fix failed. See server logs.")
+    return _serialize(updated)

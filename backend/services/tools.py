@@ -76,6 +76,52 @@ TOOL_CATALOG = {
             "required": ["product_name"],
         },
     },
+    "check_credit_limit": {
+        "name": "check_credit_limit",
+        "description": "Check the remaining credit limit available to a customer",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "user_id": {"type": "string", "description": "The customer's user ID"}
+            },
+            "required": ["user_id"],
+        },
+    },
+    "request_refund": {
+        "name": "request_refund",
+        "description": (
+            "Open a refund request for a specific transaction. "
+            "You MUST have a transaction ID and a reason before calling — "
+            "if either is missing, ask the customer first."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "transaction_id": {"type": "string", "description": "The transaction to refund"},
+                "reason": {"type": "string", "description": "Customer-stated reason for the refund"},
+            },
+            "required": ["transaction_id", "reason"],
+        },
+    },
+    "schedule_callback": {
+        "name": "schedule_callback",
+        "description": (
+            "Schedule a callback from a human agent. "
+            "Requires the customer's user ID and a preferred time window. "
+            "Valid time windows: 'morning', 'afternoon', 'evening'."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "user_id": {"type": "string", "description": "The customer's user ID"},
+                "preferred_time": {
+                    "type": "string",
+                    "description": "One of 'morning', 'afternoon', 'evening'",
+                },
+            },
+            "required": ["user_id", "preferred_time"],
+        },
+    },
 }
 
 
@@ -152,6 +198,57 @@ def mock_lookup_pricing(product_name: str) -> dict:
     }
 
 
+def mock_check_credit_limit(user_id: str) -> dict:
+    limits = [5000, 10000, 25000, 50000]
+    total = limits[hash(user_id) % len(limits)]
+    used = (hash(user_id + "used") % total)
+    return {
+        "user_id": user_id,
+        "total_limit": total,
+        "used": used,
+        "available": total - used,
+        "currency": "PHP",
+    }
+
+
+def mock_request_refund(transaction_id: str, reason: str) -> dict:
+    if not re.match(r"^[A-Z0-9\-]{6,}$", transaction_id):
+        return {
+            "error": "invalid_transaction_id",
+            "message": "Transaction ID format looks wrong. Please double-check it.",
+        }
+    if len(reason.strip()) < 5:
+        return {
+            "error": "reason_too_short",
+            "message": "Please provide a more detailed reason for the refund.",
+        }
+    return {
+        "refund_request_id": f"REF-{abs(hash(transaction_id + reason)) % 1000000:06d}",
+        "transaction_id": transaction_id,
+        "reason": reason,
+        "status": "submitted",
+        "estimated_processing_days": 5,
+        "message": "Refund request submitted. You'll receive an email once it's reviewed.",
+    }
+
+
+def mock_schedule_callback(user_id: str, preferred_time: str) -> dict:
+    valid = {"morning", "afternoon", "evening"}
+    slot = preferred_time.strip().lower()
+    if slot not in valid:
+        return {
+            "error": "invalid_time_window",
+            "message": "Preferred time must be one of: morning, afternoon, evening.",
+        }
+    return {
+        "callback_id": f"CB-{abs(hash(user_id + slot)) % 100000:05d}",
+        "user_id": user_id,
+        "preferred_time": slot,
+        "status": "scheduled",
+        "message": f"Callback scheduled for this {slot}. An agent will reach out.",
+    }
+
+
 # --- LangChain tool wrappers ---
 
 @tool
@@ -190,11 +287,36 @@ def lookup_pricing(product_name: str) -> dict:
     return mock_lookup_pricing(product_name)
 
 
+@tool
+def check_credit_limit(user_id: str) -> dict:
+    """Check the remaining credit limit available to a customer."""
+    return mock_check_credit_limit(user_id)
+
+
+@tool
+def request_refund(transaction_id: str, reason: str) -> dict:
+    """Open a refund request for a specific transaction. You MUST have both
+    a transaction ID and a reason before calling — if either is missing,
+    ask the customer first."""
+    return mock_request_refund(transaction_id, reason)
+
+
+@tool
+def schedule_callback(user_id: str, preferred_time: str) -> dict:
+    """Schedule a callback from a human agent. preferred_time must be one of:
+    'morning', 'afternoon', 'evening'. If the customer says anything else,
+    ask them to pick one of those three options before calling."""
+    return mock_schedule_callback(user_id, preferred_time)
+
+
 LANGCHAIN_TOOL_REGISTRY = {
     "get_application_status": get_application_status,
     "get_transaction_status": get_transaction_status,
     "get_user_account": get_user_account,
     "escalate_to_human": escalate_to_human,
     "lookup_pricing": lookup_pricing,
+    "check_credit_limit": check_credit_limit,
+    "request_refund": request_refund,
+    "schedule_callback": schedule_callback,
     # search_knowledge_base is built per-request (binds agent_id) — see Step 4
 }

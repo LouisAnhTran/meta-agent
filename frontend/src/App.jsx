@@ -103,6 +103,8 @@ export default function App() {
     return 420
   })
   const [settingsResizing, setSettingsResizing] = useState(false)
+  const [settingsRefreshTick, setSettingsRefreshTick] = useState(0)
+  const [settingsDirty, setSettingsDirty] = useState(false)
 
   function clampSettingsWidth(w) {
     const max = Math.min(560, Math.floor(window.innerWidth * 0.35))
@@ -247,6 +249,24 @@ export default function App() {
     setPanelMode(prev => prev === mode ? null : mode)
   }
 
+  // Refetch the selected agent whenever the settings panel opens, so the
+  // editor always reflects the latest instructions (e.g. after an auto-fix
+  // ran or another tab edited the agent).
+  useEffect(() => {
+    if (panelMode !== 'settings') return
+    if (isCreatingNew || !selectedAgentId) return
+    if (selectedAgentId === TOUR_DEMO_AGENT_ID) return
+    let cancelled = false
+    api.getAgent(selectedAgentId)
+      .then(fresh => {
+        if (cancelled) return
+        setAgents(prev => prev.map(a => a.id === fresh.id ? fresh : a))
+        setSettingsRefreshTick(t => t + 1)
+      })
+      .catch(console.error)
+    return () => { cancelled = true }
+  }, [panelMode, selectedAgentId, isCreatingNew])
+
   function handleCreateNew() {
     setSelectedAgentId(null)
     setIsCreatingNew(true)
@@ -351,6 +371,8 @@ export default function App() {
               isCreatingNew={isCreatingNew}
               tools={tools}
               onSaved={handleSaved}
+              refreshTick={settingsRefreshTick}
+              onDirtyChange={setSettingsDirty}
             />
           </div>
         </div>
@@ -368,7 +390,13 @@ export default function App() {
 
       {/* Chat (main) */}
       <main className="flex-1 min-w-0">
-        <ChatWindow agent={selectedAgent} isCreatingNew={isCreatingNew} userName={userName} />
+        <ChatWindow
+          agent={selectedAgent}
+          isCreatingNew={isCreatingNew}
+          userName={userName}
+          settingsDirty={settingsDirty}
+          onOpenSettings={() => setPanelMode('settings')}
+        />
       </main>
 
       {/* Tour intro drawer — shown after name is entered */}
@@ -431,7 +459,7 @@ export default function App() {
           onClick={() => setPanelMode(null)}
         >
           <div
-            className="w-full max-w-3xl max-h-[88vh] flex flex-col rounded-lg border border-dark-border bg-dark-surface shadow-2xl"
+            className="w-full max-w-5xl h-[88vh] flex flex-col rounded-lg border border-dark-border bg-dark-surface shadow-2xl"
             onClick={e => e.stopPropagation()}
           >
             <div className="flex items-center justify-between px-4 py-3 border-b border-dark-border flex-shrink-0">

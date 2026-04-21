@@ -26,7 +26,7 @@ const MARKDOWN_COMPONENTS = {
   strong: ({ children }) => <strong className="font-semibold text-dark-text">{children}</strong>,
   em: ({ children }) => <em className="italic">{children}</em>,
   a: ({ href, children }) => (
-    <a href={href} target="_blank" rel="noopener noreferrer" className="text-dark-accent hover:underline">
+    <a href={href} target="_blank" rel="noopener noreferrer" className="font-medium underline underline-offset-2 text-blue-700 hover:text-blue-800 dark:text-dark-accent dark:hover:text-dark-accent-hover">
       {children}
     </a>
   ),
@@ -43,7 +43,7 @@ const MARKDOWN_COMPONENTS = {
   hr: () => <hr className="border-dark-border my-3" />,
 }
 
-export default function ChatWindow({ agent, isCreatingNew, userName }) {
+export default function ChatWindow({ agent, isCreatingNew, userName, settingsDirty, onOpenSettings }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -95,6 +95,7 @@ export default function ChatWindow({ agent, isCreatingNew, userName }) {
     const override = typeof textOverride === 'string' ? textOverride.trim() : null
     const text = override ?? input.trim()
     if (!text || loading || !agent) return
+    if (settingsDirty) return
     if (override === null) setInput('')
 
     const userMsg = { role: 'user', content: text, createdAt: Date.now() }
@@ -203,6 +204,20 @@ export default function ChatWindow({ agent, isCreatingNew, userName }) {
         {/* Input */}
         <div className="flex-shrink-0 px-6 pb-6 pt-2">
           <div className="max-w-3xl mx-auto">
+            {settingsDirty && (
+              <div className="mb-2 flex items-center gap-2 px-3 py-2 rounded-md border border-yellow-500/40 bg-yellow-500/10 text-yellow-700 dark:text-yellow-300 text-xs">
+                <AlertTriangle size={14} className="flex-shrink-0" />
+                <span className="flex-1">You have unsaved changes in Agent Settings. Save them before chatting.</span>
+                {onOpenSettings && (
+                  <button
+                    onClick={onOpenSettings}
+                    className="flex-shrink-0 px-2 py-0.5 rounded border border-yellow-500/60 text-yellow-800 dark:text-yellow-200 hover:bg-yellow-500/20 transition-colors"
+                  >
+                    Open Settings
+                  </button>
+                )}
+              </div>
+            )}
             <Composer
               agentName={agent.name}
               input={input}
@@ -210,6 +225,7 @@ export default function ChatWindow({ agent, isCreatingNew, userName }) {
               onSend={handleSend}
               onKeyDown={handleKeyDown}
               loading={loading}
+              disabled={settingsDirty}
             />
             <p className="text-xs text-dark-muted text-center mt-2">Press Enter to send, Shift+Enter for new line</p>
           </div>
@@ -280,7 +296,7 @@ const PLUS_MENU_ITEMS = [
   { icon: Link2, label: 'Connections' },
 ]
 
-function Composer({ agentName, input, setInput, onSend, onKeyDown, loading }) {
+function Composer({ agentName, input, setInput, onSend, onKeyDown, loading, disabled }) {
   const [plusOpen, setPlusOpen] = useState(false)
   const [modelOpen, setModelOpen] = useState(false)
   const [model, setModel] = useState('Claude Opus 4.7')
@@ -288,18 +304,19 @@ function Composer({ agentName, input, setInput, onSend, onKeyDown, loading }) {
   const [webSearch, setWebSearch] = useState(false)
   const [reasoning, setReasoning] = useState(true)
   const textareaRef = useRef(null)
-  const canSend = !loading && input.trim().length > 0
+  const canSend = !loading && !disabled && input.trim().length > 0
 
   return (
-    <div className="relative flex flex-col bg-dark-surface border border-dark-border rounded-2xl shadow-lg focus-within:border-dark-accent transition-colors">
+    <div className={`relative flex flex-col bg-dark-surface border border-dark-border rounded-2xl shadow-lg transition-colors ${disabled ? 'opacity-60' : 'focus-within:border-dark-accent'}`}>
       <textarea
         ref={textareaRef}
         value={input}
         onChange={e => setInput(e.target.value)}
         onKeyDown={onKeyDown}
-        placeholder={`Message ${agentName}…`}
+        disabled={disabled}
+        placeholder={disabled ? 'Save agent settings to resume chatting…' : `Message ${agentName}…`}
         rows={2}
-        className="chat-input bg-transparent px-4 pt-3 pb-1 text-sm text-dark-text resize-none focus:outline-none placeholder:text-dark-muted"
+        className="chat-input bg-transparent px-4 pt-3 pb-1 text-sm text-dark-text resize-none focus:outline-none placeholder:text-dark-muted disabled:cursor-not-allowed"
       />
 
       <div className="flex items-center justify-between gap-2 px-2 pb-2 pt-1">
@@ -660,7 +677,7 @@ function MessageBubble({ msg, onViewArticle, onAskQuestion, onReport }) {
 
       {/* References */}
       {msg.references?.length > 0 && (
-        <div className="max-w-[80%] flex flex-col gap-1.5 mt-1">
+        <div className="max-w-[80%] flex flex-col gap-1.5 mt-3">
           <p className="text-xs text-dark-muted uppercase tracking-wide">Relevant sources</p>
           <div className="flex flex-wrap gap-1.5">
             {msg.references.map((ref, i) => (
@@ -680,7 +697,7 @@ function MessageBubble({ msg, onViewArticle, onAskQuestion, onReport }) {
 
       {/* Related questions — clicking populates the input so the user can edit/send */}
       {msg.related_questions?.length > 0 && (
-        <div className="max-w-[80%] flex flex-col gap-1.5 mt-1">
+        <div className="max-w-[80%] flex flex-col gap-1.5 mt-3">
           <p className="text-xs text-dark-muted uppercase tracking-wide">Other related questions</p>
           <div className="flex flex-wrap gap-1.5">
             {msg.related_questions.map((q, i) => (
