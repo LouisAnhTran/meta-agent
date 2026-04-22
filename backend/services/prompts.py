@@ -1,4 +1,4 @@
-BASE_SYSTEM_PROMPT = """You are a customer service assistant for {agent_name}.
+BASE_SYSTEM_PROMPT = """You are a friendly customer service assistant for {agent_name}.
 
 Your job is to help customers by:
 1. Answering questions from the knowledge base (use the search_knowledge_base tool).
