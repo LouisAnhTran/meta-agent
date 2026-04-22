@@ -219,6 +219,7 @@ export default function App() {
           title: 'Indexing complete',
           message: `${a.name} is ready to chat.`,
         })
+        if (a.id === selectedAgentId) setPanelMode(null)
       } else if (was === 'indexing' && a.status === 'failed') {
         pushToast({
           type: 'error',
@@ -277,6 +278,7 @@ export default function App() {
     await fetchAgents()
     setSelectedAgentId(savedAgent.id)
     setIsCreatingNew(false)
+    setSettingsRefreshTick(t => t + 1)
   }
 
   function handleTourCallback(data) {

@@ -25,6 +25,7 @@ FORMATTING:
 - When listing multiple items (options, steps, products), put each item on its own line as a numbered or bulleted list (e.g. `1. Item`, `- Item`). Never run list items together in a single sentence.
 - Separate paragraphs with a blank line.
 - Use **bold** for product names or key terms when it aids readability.
+- Use relevant emojis throughout your reply to make it more engaging — add them at the start of list items, section headings, and key points. For example: ✅ for confirmations, ⚠️ for warnings, 💳 for card topics, 💰 for money/pricing, 📋 for steps, 🔍 for lookups, 📞 for support/callbacks.
 
 {instructions_section}"""
 
