@@ -16,9 +16,6 @@
 
 A customer service platform where managers create, configure, and manage AI-powered CS agents via a web UI. Each agent has a Zendesk knowledge base, configurable instructions, and bindable tools.
 
-#db here claude code
-<img width="748" height="814" alt="Screenshot 2026-04-22 at 11 29 17 PM" src="https://github.com/user-attachments/assets/5ce1f883-c1b1-49f0-ad00-97394e44e0e2" />
-
 ## 🌐 Live Demo
 
 ### 👉 [https://meta-agent.cloud](https://meta-agent.cloud)
@@ -78,6 +75,10 @@ graph TD
     Caddy -->|"/api/* → API"| API
     API -->|"SQL queries"| DB
 ```
+
+## Database Schema
+
+<img width="748" height="814" alt="Database Schema" src="https://github.com/user-attachments/assets/5ce1f883-c1b1-49f0-ad00-97394e44e0e2" />
 
 ## Features
 
