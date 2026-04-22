@@ -26,8 +26,7 @@ The Atome Card Support agent is pre-configured and ready to chat. A guided produ
 
 | What to try | How |
 |---|---|
-| Ask the bot a KB question | *"How do I activate
- my card?"* |
+| Ask the bot a KB question | *"How do I activate my card?"* |
 | Trigger a business tool | *"What's my application status?"* (bot will ask for your user ID) |
 | Open an article preview | Click any blue **Relevant sources** chip below a bot reply |
 | Report a bad answer | Click the **🚩 Report** flag on any bot message |
