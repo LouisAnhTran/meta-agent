@@ -14,9 +14,9 @@
 
 A customer service platform where managers create, configure, and manage AI-powered CS agents via a web UI. Each agent has a Zendesk knowledge base, configurable instructions, and bindable tools.
 
-## Live Demo
+## 🌐 Live Demo
 
-**https://meta-agent.cloud**
+### 👉 [https://meta-agent.cloud](https://meta-agent.cloud)
 
 The Atome Card Support agent is pre-configured and ready to chat. A guided product tour launches automatically on first visit — it walks through every feature step by step. You can skip it or re-trigger it anytime via the **?** button in the header.
 
