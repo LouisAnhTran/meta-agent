@@ -16,6 +16,9 @@
 
 A customer service platform where managers create, configure, and manage AI-powered CS agents via a web UI. Each agent has a Zendesk knowledge base, configurable instructions, and bindable tools.
 
+#db here claude code
+<img width="748" height="814" alt="Screenshot 2026-04-22 at 11 29 17 PM" src="https://github.com/user-attachments/assets/5ce1f883-c1b1-49f0-ad00-97394e44e0e2" />
+
 ## 🌐 Live Demo
 
 ### 👉 [https://meta-agent.cloud](https://meta-agent.cloud)
@@ -26,7 +29,8 @@ The Atome Card Support agent is pre-configured and ready to chat. A guided produ
 
 | What to try | How |
 |---|---|
-| Ask the bot a KB question | *"How do I activate my card?"* |
+| Ask the bot a KB question | *"How do I activate
+ my card?"* |
 | Trigger a business tool | *"What's my application status?"* (bot will ask for your user ID) |
 | Open an article preview | Click any blue **Relevant sources** chip below a bot reply |
 | Report a bad answer | Click the **🚩 Report** flag on any bot message |
