@@ -54,23 +54,25 @@ The Atome bot is simply the first agent created through the meta-agent UI. One a
 | Proxy | Caddy (auto-HTTPS via Let's Encrypt) |
 | Deployment | Docker Compose on GCE `e2-medium` — **https://meta-agent.cloud** |
 
-## Architecture
+## Architecture on Production
 
-```
-┌─────────────────────────────────────────────────────┐
-│  Frontend (React / Vite)                             │
-│  Agent List │ Agent Editor │ Chat Window             │
-└──────────────────────┬──────────────────────────────┘
-                       │ REST API (/api/*)
-┌──────────────────────▼──────────────────────────────┐
-│  Backend (FastAPI + LangGraph)                       │
-│  Agent CRUD │ Indexing Pipeline │ Chat Runtime       │
-└──────────────────────┬──────────────────────────────┘
-                       │
-┌──────────────────────▼──────────────────────────────┐
-│  PostgreSQL + pgvector                               │
-│  agents │ kb_articles (vectors) │ mistake_reports   │
-└─────────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    Client["🌐 Browser / Mobile Client"]
+    DNS["🔍 Namecheap DNS<br/>meta-agent.cloud → 34.124.226.150"]
+
+    subgraph VM["GCE VM · e2-medium · asia-southeast1"]
+        Caddy["📦 Caddy<br/>Reverse Proxy + Auto-TLS<br/>:443"]
+        UI["📦 UI Container<br/>React + Vite<br/>:3000"]
+        API["📦 API Container<br/>FastAPI + LangGraph<br/>:8000"]
+        DB["📦 DB Container<br/>PostgreSQL + pgvector<br/>:5432"]
+    end
+
+    Client -->|"HTTPS · meta-agent.cloud"| DNS
+    DNS -->|"resolves to 34.124.226.150"| Caddy
+    Caddy -->|"/* → UI"| UI
+    Caddy -->|"/api/* → API"| API
+    API -->|"SQL queries"| DB
 ```
 
 ## Features
