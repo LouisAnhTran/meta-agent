@@ -14,6 +14,25 @@
 
 A customer service platform where managers create, configure, and manage AI-powered CS agents via a web UI. Each agent has a Zendesk knowledge base, configurable instructions, and bindable tools.
 
+## Live Demo
+
+**https://meta-agent.cloud**
+
+The Atome Card Support agent is pre-configured and ready to chat. A guided product tour launches automatically on first visit — it walks through every feature step by step. You can skip it or re-trigger it anytime via the **?** button in the header.
+
+**Try these to explore the full feature set:**
+
+| What to try | How |
+|---|---|
+| Ask the bot a KB question | *"How do I activate my card?"* |
+| Trigger a business tool | *"What's my application status?"* (bot will ask for your user ID) |
+| Open an article preview | Click any blue **Relevant sources** chip below a bot reply |
+| Report a bad answer | Click the **🚩 Report** flag on any bot message |
+| Run auto-fix | Open **Feedback Reports** → click **Run Fix** on an open report |
+| Create a second agent | Click **+ New Agent** in the sidebar and paste any Zendesk help center URL |
+
+---
+
 ## Overview
 
 - **Part 1:** A working CS bot for Atome — created through the UI after deploy
@@ -27,11 +46,11 @@ The Atome bot is simply the first agent created through the meta-agent UI. One a
 |-------|-----------|
 | Frontend | React 18 + Vite + TailwindCSS |
 | Backend | Python 3.11, FastAPI, LangGraph |
-| LLM | Claude Sonnet 4.5 (chat + auto-fix) |
+| LLM | Claude Opus 4.6 (chat + auto-fix) |
 | Embeddings | OpenAI `text-embedding-3-small` |
 | Database | PostgreSQL 16 + pgvector |
-| Proxy | Caddy |
-| Deployment | Docker Compose on EC2 |
+| Proxy | Caddy (auto-HTTPS via Let's Encrypt) |
+| Deployment | Docker Compose on GCE `e2-medium` — **https://meta-agent.cloud** |
 
 ## Architecture
 

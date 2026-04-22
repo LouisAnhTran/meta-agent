@@ -49,7 +49,7 @@ The key insight: Part 1's Atome bot is just the first agent created through the 
 │       - OpenAI — embeddings only                          │
 └───────────────────────────────────────────────────────────┘
                       ▲
-                      │ Docker Compose on EC2
+                      │ Docker Compose on GCE
                       │ (Caddy + UI + API + DB)
 ```
 
@@ -58,9 +58,9 @@ The key insight: Part 1's Atome bot is just the first agent created through the 
 - **Backend:** Python 3.11+, FastAPI, LangGraph (`langchain-anthropic`, `langchain-openai` for embeddings)
 - **Package management:** `uv` (pyproject.toml + uv.lock)
 - **Database:** PostgreSQL 16 + pgvector extension (single source of truth: config, vectors, mistakes)
-- **LLM:** Claude Sonnet 4.5 (chat, auto-fix)
+- **LLM:** Claude Opus 4.6 (`claude-opus-4-6`) (chat, auto-fix)
 - **Embeddings:** OpenAI `text-embedding-3-small` (1536 dims)
-- **Deployment:** Single EC2 instance running Docker Compose (Caddy + UI + API + DB)
+- **Deployment:** Single GCE instance (`e2-medium`) running Docker Compose (Caddy + UI + API + DB), live at **https://meta-agent.cloud**
 
 ---
 
@@ -250,8 +250,8 @@ volumes:
 ### `Caddyfile`
 
 ```
-{$DOMAIN:localhost} {
-    handle_path /api/* {
+{$DOMAIN:meta-agent.cloud} {
+    handle /api/* {
         reverse_proxy api:8000
     }
     handle {
@@ -259,6 +259,8 @@ volumes:
     }
 }
 ```
+
+> **Note:** Using `{$DOMAIN:meta-agent.cloud}` (a real hostname, not `:80`) enables Caddy's automatic HTTPS via Let's Encrypt. For local dev, override with `DOMAIN=localhost:80` in `.env`. The `handle` directive (not `handle_path`) is used so `/api/` prefix is preserved when proxying to the backend.
 
 ### Backend `Dockerfile`
 
@@ -564,13 +566,52 @@ TOOL_CATALOG = {
     },
     "lookup_pricing": {
         "name": "lookup_pricing",
-        "description": "Look up pricing information for a product or service",
+        "description": "Look up pricing for a product. Valid products: 'Atome Card', 'Premium Plan', 'VIP Plan'.",
         "parameters": {
             "type": "object",
             "properties": {
                 "product_name": {"type": "string", "description": "Name of the product"}
             },
             "required": ["product_name"]
+        }
+    },
+    "check_credit_limit": {
+        "name": "check_credit_limit",
+        "description": "Check the remaining credit limit available to a customer",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "user_id": {"type": "string", "description": "The customer's user ID"}
+            },
+            "required": ["user_id"]
+        }
+    },
+    "request_refund": {
+        "name": "request_refund",
+        "description": ("Open a refund request for a specific transaction. "
+                        "You MUST have a transaction ID and a reason before calling — "
+                        "if either is missing, ask the customer first."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "transaction_id": {"type": "string", "description": "The transaction to refund"},
+                "reason": {"type": "string", "description": "Customer-stated reason for the refund"},
+            },
+            "required": ["transaction_id", "reason"]
+        }
+    },
+    "schedule_callback": {
+        "name": "schedule_callback",
+        "description": ("Schedule a callback from a human agent. "
+                        "Requires the customer's user ID and a preferred time window. "
+                        "Valid time windows: 'morning', 'afternoon', 'evening'."),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "user_id": {"type": "string", "description": "The customer's user ID"},
+                "preferred_time": {"type": "string", "description": "One of 'morning', 'afternoon', 'evening'"},
+            },
+            "required": ["user_id", "preferred_time"]
         }
     },
 }
@@ -837,12 +878,13 @@ def make_search_knowledge_base_tool(agent_id: str):
         """Search the agent's knowledge base for answers to customer questions."""
         emb = await embed_single(query)
 
-        # Top 3 most similar articles
+        # Top 3 most similar articles above a 0.5 cosine similarity threshold
         rows = await db.fetch("""
             SELECT id, article_title, article_url, section_name, body_text,
                    1 - (embedding <=> $1::vector) AS similarity
             FROM kb_articles
             WHERE agent_id = $2
+              AND 1 - (embedding <=> $1::vector) >= 0.5
             ORDER BY embedding <=> $1::vector
             LIMIT 3
         """, emb, agent_id)
@@ -938,9 +980,15 @@ BEHAVIORAL RULES:
 - Be polite, concise, and helpful.
 - For questions answerable from the knowledge base, search it BEFORE responding.
 - When a tool requires specific information (like a transaction ID), ask the customer for it if not provided. Tell them where to find it if helpful.
-- When you answer from the knowledge base, cite the source article URL.
-- If you can't help from the KB or tools, offer to escalate to a human.
+- When you answer from the knowledge base, end your reply with a `**Sources:**` block: a Markdown bulleted list with one `- [Article Title](url)` per cited article. Never paste raw URLs.
+- If the KB doesn't have an answer and no tool applies, tell the user the knowledge base doesn't cover their question. Do not offer to escalate to a human unless the user explicitly asks for one.
 - Never fabricate information. If the KB doesn't have an answer, say so.
+- Do NOT include a "you might also be interested in" or "related questions" section — the UI already surfaces those as clickable chips.
+
+FORMATTING:
+- Your replies are rendered as Markdown. Use proper Markdown formatting.
+- When listing multiple items, put each on its own line as a numbered or bulleted list. Never run list items together in a single sentence.
+- Separate paragraphs with a blank line.
 
 {instructions_section}"""
 
@@ -970,7 +1018,7 @@ def build_system_prompt(agent) -> str:
 from langchain_anthropic import ChatAnthropic
 from langgraph.prebuilt import create_react_agent
 
-llm = ChatAnthropic(model="claude-sonnet-4-5-20251001", max_tokens=2048)
+llm = ChatAnthropic(model="claude-opus-4-6", max_tokens=2048)
 
 
 async def run_chat(agent_id: str, messages: list[dict]) -> dict:
@@ -1362,9 +1410,9 @@ Each bot message that uses the knowledge base renders in three sections:
 
 **Section 1 — Answer:** The LLM's text response to the user's question.
 
-**Section 2 — Sources:** Pill-shaped chips (blue background, full title shown — no truncation, `items-start gap-1` + `break-words`) listing the articles the agent used. Clicking a chip's `[View]` opens the **Article Viewer Panel** (see below) — does NOT navigate away from the chat. Section heading is "Sources".
+**Section 2 — Relevant sources:** Pill-shaped chips (blue background, full title shown — no truncation, `items-start gap-1` + `break-words`) listing the articles the agent used. Clicking a chip opens the **Article Viewer Panel** (see below) — does NOT navigate away from the chat. Section heading is "Relevant sources". Hovering shows a tooltip "Click to preview this article".
 
-**Section 3 — Other related questions:** Pill-shaped chips (emerald background) from the same KB section (filtered to question-like titles). Clicking a chip **populates the composer textarea with that question text** and focuses the textarea (cursor placed at the end via `setSelectionRange(len, len)`) — implemented through a `focusInputTick` state passed into Composer. The user can edit the prefilled text and press Enter to send. The chips do NOT auto-send. Section heading is "Other related questions".
+**Section 3 — Other related questions:** Pill-shaped chips (emerald background) from the same KB section (filtered to question-like titles). Clicking a chip **auto-sends the question immediately** (calls `handleSend` directly with the question text). Section heading is "Other related questions".
 
 ### Article Viewer Panel
 
@@ -1537,81 +1585,57 @@ Each entry is a card showing:
 
 Triggered by `PUT /api/mistakes/{id}/fix`.
 
+Uses **Pydantic structured output** (no raw JSON parsing). Only `instruction_text` is ever updated — `tool_name` and `display_order` are never touched, preventing the LLM from accidentally nulling them.
+
 ```python
-async def auto_fix_mistake(mistake_id: str) -> dict:
-    mistake = await get_mistake(mistake_id)
-    agent = await get_agent(mistake.agent_id)
+class InstructionTextUpdate(BaseModel):
+    tool_name: str   # must match an existing instruction's tool_name exactly
+    instruction_text: str   # the new text to replace the current text
 
-    # 1. Ask Claude to diagnose + propose a fix
-    fix_prompt = f"""A customer service bot made a mistake. Diagnose it and propose a fix
-to the agent's instructions.
+class FixOutput(BaseModel):
+    updates: list[InstructionTextUpdate] = []  # empty = no text changes needed
+    fix_comment: str
 
-Current instructions:
-{json.dumps(agent.instructions, indent=2)}
+async def apply_fix(mistake_id: str) -> dict:
+    mistake = await db.fetchrow("SELECT * FROM mistake_reports WHERE id = $1", mistake_id)
+    agent = await db.fetchrow("SELECT * FROM agents WHERE id = $1", mistake["agent_id"])
 
-User asked: "{mistake.user_message}"
-Bot responded: "{mistake.bot_response}"
-User's feedback: "{mistake.user_description}"
+    current_instructions = agent["instructions"] or []
+    existing_tool_names = {ins["tool_name"] for ins in current_instructions if ins.get("tool_name")}
 
-Respond as a JSON object:
-{{
-  "diagnosis": "brief explanation of what went wrong",
-  "instruction_change": {{
-    "action": "add" | "modify" | "none",
-    "index": <int, only for 'modify' — 0-based index of instruction to change>,
-    "new_text": "the new or modified instruction text",
-    "tool_name": "<optional — tool name from the catalog to bind to this instruction>"
-  }},
-  "fix_comment": "Describe the CONCRETE ACTION you performed. Examples:
-    - 'Added new instruction (#3): When customers ask about card activation, direct them to the Atome app Card tab to enter last 4 digits and set PIN.'
-    - 'Modified instruction #2: Changed from \"Look up the transaction\" to \"Always ask for transaction ID first before calling get_transaction_status.\"'
-    - 'No change needed: The bot's response was actually correct based on the KB content.'
-    State the action (added/modified/no change), which instruction number, and quote the key change."
-}}"""
+    llm = ChatAnthropic(model="claude-opus-4-6", max_tokens=2048).with_structured_output(FixOutput)
+    fix = await llm.ainvoke([system_prompt, user_prompt_with_current_instructions])
 
-    response = await llm.ainvoke([{"role": "user", "content": fix_prompt}])
-    fix = json.loads(response.content)
+    # Validate: tool_names in updates must exist in the agent's current instructions
+    _validate(fix, existing_tool_names)
 
-    # 2. Apply the instruction change
-    new_instructions = list(agent.instructions)
-    change = fix.get("instruction_change", {})
-    if change.get("action") == "add":
-        new_instructions.append({
-            "instruction_text": change["new_text"],
-            "tool_name": change.get("tool_name"),
-            "display_order": len(new_instructions) + 1,
-        })
-    elif change.get("action") == "modify" and "index" in change:
-        idx = change["index"]
-        if 0 <= idx < len(new_instructions):
-            new_instructions[idx]["instruction_text"] = change["new_text"]
-            if change.get("tool_name"):
-                new_instructions[idx]["tool_name"] = change["tool_name"]
+    # Merge: only overwrite instruction_text for matched tool_names; everything else preserved
+    updates_by_tool = {u.tool_name: u.instruction_text for u in fix.updates}
+    new_instructions = [
+        {**ins, "instruction_text": updates_by_tool[ins["tool_name"]]}
+        if ins.get("tool_name") in updates_by_tool else dict(ins)
+        for ins in current_instructions
+    ]
 
-    await update_agent_instructions(agent.id, new_instructions)
+    if updates_by_tool:
+        await db.execute("UPDATE agents SET instructions = $1, updated_at = NOW() WHERE id = $2",
+                         new_instructions, mistake["agent_id"])
 
-    # 3. VERIFICATION REPLAY: ask the same question to the updated agent
-    # (system prompt is re-derived automatically because it's built from instructions)
-    replay = await run_chat(
-        agent.id,
-        messages=[{"role": "user", "content": mistake.user_message}]
+    # Verification replay
+    replay = await run_chat(str(mistake["agent_id"]), [{"role": "user", "content": mistake["user_message"]}])
+
+    await db.execute(
+        "UPDATE mistake_reports SET status='fixed', fix_comment=$1, verified_response=$2, resolved_at=NOW() WHERE id=$3",
+        fix.fix_comment, replay["reply"], mistake_id
     )
-
-    # 4. Mark fixed
-    await update_mistake(
-        mistake_id,
-        status="fixed",
-        fix_comment=fix["fix_comment"],
-        verified_response=replay["reply"],
-        resolved_at=datetime.utcnow(),
-    )
-
-    return {
-        "diagnosis": fix["diagnosis"],
-        "fix_comment": fix["fix_comment"],
-        "verified_response": replay["reply"],
-    }
+    return dict(updated_row)
 ```
+
+**Safety properties of this design:**
+- LLM can only propose text updates for tools that already exist on the agent — cannot invent tool_names or null them
+- `tool_name` and `display_order` are never written — only `instruction_text` changes
+- If `updates` is empty (no text changes needed), no DB write happens at all
+- Validation rejects: unknown tool_names, duplicate updates for same tool, empty instruction_text
 
 ### UI: Before/After Display
 
@@ -1871,13 +1895,14 @@ After saving, the agent enters `indexing` status. Wait ~30–60 seconds for it t
 
 ### Deployment Quick Reference
 
-- **EC2 instance type:** `t3.small` (2GB RAM, ~$15/mo)
-- **Region:** `ap-southeast-1`
-- **EBS:** 20GB gp3
-- **Security group:** 22/80/443 inbound
-- **Elastic IP:** attached (so reboots don't change URL)
-- **DNS:** Route 53 or Namecheap A record → Elastic IP
-- **HTTPS:** Caddy auto-provisions Let's Encrypt cert on first request
+- **GCE instance type:** `e2-medium` (4GB RAM, 2 vCPU shared, ~$25/mo)
+- **Project:** `cs-meta-agent-louis-2026`
+- **Region/zone:** `asia-southeast1` / `asia-southeast1-a`
+- **Boot disk:** 20GB pd-balanced, Ubuntu 24.04 LTS
+- **Static IP:** `34.124.226.150` (reserved, survives reboots)
+- **Firewall tags:** `http-server` (80), `https-server` (443)
+- **Domain:** `meta-agent.cloud` — Namecheap A record → `34.124.226.150`
+- **HTTPS:** Caddy auto-provisions Let's Encrypt cert on first request (domain binding in Caddyfile triggers ACME challenge)
 
 ---
 
@@ -1888,7 +1913,7 @@ After saving, the agent enters `indexing` status. Wait ~30–60 seconds for it t
 ### README sections
 
 **1. How AI was used**
-- **Models:** Claude Sonnet 4.5 (chat + auto-fix), OpenAI `text-embedding-3-small` (embeddings only — Anthropic doesn't offer embeddings yet).
+- **Models:** Claude Opus 4.6 (`claude-opus-4-6`) for chat + auto-fix, OpenAI `text-embedding-3-small` for embeddings (Anthropic doesn't offer embeddings yet).
 - **IDE / tools:** VS Code + Claude Code for scaffolding; Cursor for iteration.
 - **What AI helped with:** initial architecture discussion, scaffolding code, prompt engineering for the auto-fix diagnosis prompt, debugging LangGraph integration.
 
