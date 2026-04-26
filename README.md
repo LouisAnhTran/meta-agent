@@ -42,6 +42,27 @@ The Atome Card Support agent is pre-configured and ready to chat. A guided produ
 
 The Atome bot is simply the first agent created through the meta-agent UI. One architecture, one code path.
 
+## How I Used AI
+
+AI was used as an implementation accelerator, not a substitute for engineering design. All system decisions were made upfront by me:
+
+- Defined the full feature set and user flows
+- Designed the database schema (tables, relationships, pgvector indexing strategy)
+- Determined all API endpoints and their contracts
+- Chose the tech stack and architecture (LangGraph ReAct, asyncpg, pgvector, Caddy)
+- Planned the deployment topology (GCE VM, Docker Compose, Caddy auto-TLS, GitHub Actions CI/CD)
+
+Once the design was complete, I asked Claude to format everything into a detailed, step-by-step build plan — each step covering implementation details, edge cases, and acceptance criteria. I then fed that build plan to **Claude Code** (Anthropic's agentic coding CLI) to implement one step at a time, testing and verifying each before moving to the next.
+
+**Models used:**
+
+| Purpose | Model |
+|---|---|
+| Chat runtime (CS bot replies) | Claude Opus 4.6 via `langchain-anthropic` |
+| Auto-fix (diagnose + patch instructions) | Claude Opus 4.6 via `langchain-anthropic` |
+| KB embeddings (indexing + search) | OpenAI `text-embedding-3-small` (1536 dims) |
+| Code implementation (this project) | Claude Code — `claude-sonnet-4-6` |
+
 ## Tech Stack
 
 | Layer | Technology |
