@@ -61,7 +61,7 @@ Once the design was complete, I asked Claude to format everything into a detaile
 | Chat runtime (CS bot replies) | Claude Opus 4.6 via `langchain-anthropic` |
 | Auto-fix (diagnose + patch instructions) | Claude Opus 4.6 via `langchain-anthropic` |
 | KB embeddings (indexing + search) | OpenAI `text-embedding-3-small` (1536 dims) |
-| Code implementation (this project) | Claude Code — `claude-sonnet-4-6` |
+| Code implementation (this project) | Claude Code — `claude-opus-4-7` |
 
 ## Tech Stack
 
